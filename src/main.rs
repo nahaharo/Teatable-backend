@@ -152,9 +152,6 @@ fn main() {
     server.bind(bind).unwrap().run().unwrap();
 }
 
-
-
-
 #[test]
 fn test_comb_sub() {
     let ans = backend::Tools::comb_sub(&SUB_MAP, &vec![("HL303".to_string(), 31)], &mut vec!["HL203".to_string()], &mut vec!["SE106".to_string()]);
@@ -171,14 +168,13 @@ fn test_redis() {
 }
 
 
-use std::time::{SystemTime};
 #[test]
 fn bench_comb() {
+    use std::time::{SystemTime};
     let now = SystemTime::now();
-    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string()]);
+    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string(), "SE108a".to_string()]).unwrap();
     match now.elapsed() {
         Ok(elapsed) => {
-            
             println!("{}", elapsed.as_millis());
         }
         Err(e) => {

@@ -5,6 +5,7 @@ use crate::backend::DataIO::Subject;
 
 use min_max_heap::MinMaxHeap;
 use std::cmp::Ordering;
+use std::time::{SystemTime};
 
 #[derive(Clone, Debug)]
 struct Subs {
@@ -70,8 +71,11 @@ fn hamming_weight(x: &[u64]) -> u32
     sum as u32
 }
 
-pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>) -> Result<Option<Vec<Vec<u32>>>, String>
+pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
+     -> Result<Option<Vec<Vec<u32>>>, String>
 {
+    let now = SystemTime::now();
+
     reqsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
     selsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
 
@@ -139,6 +143,18 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         {
             return Err(String::from("Invalid required class code!"));
         }
+        match now.elapsed() {
+            Ok(elapsed) => {
+                if elapsed.as_secs()> 10 
+                {
+                    return Err(String::from("Function Timeout!"));
+                }
+            }
+            Err(_) => {
+                // an error occurred!
+                return Err(String::from("Function Timeout!"));
+            }
+        }
     }
     
     let mut sub_comb_list = MinMaxHeap::from(sub_comb_list);
@@ -167,6 +183,18 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         else
         {
             return Err(String::from("Invalid selected class code!"));
+        }
+        match now.elapsed() {
+            Ok(elapsed) => {
+                if elapsed.as_secs()> 10
+                {
+                    return Err(String::from("Function Timeout!"));
+                }
+            }
+            Err(_) => {
+                // an error occurred!
+                return Err(String::from("Function Timeout!"));
+            }
         }
     }
 
