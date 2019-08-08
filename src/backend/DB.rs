@@ -14,12 +14,13 @@ lazy_static!
     };
 }
 
+
 fn make_query_string() -> String
 {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                             abcdefghijklmnopqrstuvwxyz\
                             0123456789)(*^$@!~";
-    const PASSWORD_LEN: usize = 50;
+    const PASSWORD_LEN: usize = 7;
     let mut rng = rand::thread_rng();
 
     let password: String = (0..PASSWORD_LEN)
