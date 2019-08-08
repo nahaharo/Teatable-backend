@@ -99,9 +99,9 @@ fn query(req : HttpRequest) -> HttpResponse
     }
 
     let fix_subs: Vec<(String, usize)> = serde_json::from_str(fix).unwrap_or(Vec::new());
-    let req_subs: Vec<String> = serde_json::from_str(req).unwrap_or(Vec::new());
-    let sel_subs: Vec<String> = serde_json::from_str(sel).unwrap_or(Vec::new());
-    let ans = backend::Tools::comb_sub(&SUB_MAP, &fix_subs, &req_subs, &sel_subs);
+    let mut req_subs: Vec<String> = serde_json::from_str(req).unwrap_or(Vec::new());
+    let mut sel_subs: Vec<String> = serde_json::from_str(sel).unwrap_or(Vec::new());
+    let ans = backend::Tools::comb_sub(&SUB_MAP, &fix_subs, &mut req_subs, &mut sel_subs);
     let res: String;
     match ans
     {
@@ -115,14 +115,6 @@ fn query(req : HttpRequest) -> HttpResponse
         Err(t) => res = json!({"s":"f", "msg" :t}).to_string()
     }
     HttpResponse::Ok().body(res)
-}
-
-fn test(req : HttpRequest) -> HttpResponse
-{
-    let asdf: &str = req.query_string();
-    let qs = qstring::QString::from(asdf).into_pairs();
-    println!("{:?}", qs);
-    HttpResponse::Ok().body("asd")
 }
 
 // This function only gets compiled if the target OS is linux
@@ -151,7 +143,6 @@ fn main() {
         )
         .service(web::resource("/comb").route(web::post().to(query)))
         .route("/", web::get().to(|| base(&SUB_JSON)))  
-        .route("/test", web::get().to(test)) 
     });
 
     let args: Vec<String> = env::args().collect();
@@ -161,9 +152,12 @@ fn main() {
     server.bind(bind).unwrap().run().unwrap();
 }
 
+
+
+
 #[test]
 fn test_comb_sub() {
-    let ans = backend::Tools::comb_sub(&SUB_MAP, &vec![("HL303".to_string(), 31)], &vec!["HL203".to_string()], &vec!["SE106".to_string()]);
+    let ans = backend::Tools::comb_sub(&SUB_MAP, &vec![("HL303".to_string(), 31)], &mut vec!["HL203".to_string()], &mut vec!["SE106".to_string()]);
     assert_eq!(ans.unwrap().unwrap().len(), 64);
 }
 
@@ -176,35 +170,20 @@ fn test_redis() {
     print!("{:?}\n", ans);
 }
 
-#[test]
-fn test_drain() {
-    use std::collections::VecDeque;
-    let mut v = VecDeque::new();
-    v.push_back(1);
-    v.push_back(2);
-    v.push_back(3);
-    v.push_back(4);
-    v.push_back(5);
-    v.push_back(1);
-    v.push_back(2);
-    v.push_back(3);
-    v.push_back(4);
-    v.push_back(5);
-    v.push_back(1);
-    v.push_back(2);
-    v.push_back(3);
-    v.push_back(4);
-    v.push_back(5);
 
-    for _idx in 0..v.len()
-    {
-        match v.pop_front() {
-            Some(t) => {
-                println!("{:?}", &t);
-                v.push_back(t+10);
-            },
-            None=> break
+use std::time::{SystemTime};
+#[test]
+fn bench_comb() {
+    let now = SystemTime::now();
+    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string()]);
+    match now.elapsed() {
+        Ok(elapsed) => {
+            
+            println!("{}", elapsed.as_millis());
+        }
+        Err(e) => {
+            // an error occurred!
+            println!("Error: {:?}", e);
         }
     }
-    println!("{:?}", v);
 }

@@ -2,6 +2,37 @@ use std::collections::HashMap;
 
 use crate::backend::DataIO::Subject;
 
+
+use min_max_heap::MinMaxHeap;
+use std::cmp::Ordering;
+
+#[derive(Clone, Debug)]
+struct Subs {
+    sub_nums: Vec<u32>,
+    time_bit: [u64; 5],
+    factor: i32,
+}
+
+impl Ord for Subs {
+    fn cmp(&self, other: &Subs) -> Ordering {
+        other.factor.cmp(&self.factor)
+    }
+}
+
+impl PartialOrd for Subs {
+    fn partial_cmp(&self, other: &Subs)-> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Subs {
+    fn eq(&self, other: &Subs) -> bool {
+        self.factor == other.factor
+    }
+}
+
+impl Eq for Subs {}
+
 fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
 {
     let mut tmp: [u64; 5] = [0,0,0,0,0];
@@ -39,8 +70,11 @@ fn hamming_weight(x: &[u64]) -> u32
     sum as u32
 }
 
-pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &Vec<String>, selsubs: &Vec<String>) -> Result<Option<Vec<Vec<u32>>>, String>
+pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>) -> Result<Option<Vec<Vec<u32>>>, String>
 {
+    reqsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
+    selsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
+
     let mut fix_bit: [u64; 5] = [0,0,0,0,0];
     let mut fix_sub_vec = Vec::new();
     for (code, num) in fixsubs.iter()
@@ -61,7 +95,7 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
             }
             else
             {
-                return Err(String::from("Invalid fix class number!"));
+                return Err(String::from("Invalid fixed class number!"));
             }
         }
         else
@@ -70,35 +104,32 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         }
     }
 
-    let mut sub_comb_list = vec![fix_sub_vec];
-    let mut sub_comb_bits = vec![fix_bit];
+    let mut sub_comb_list = vec![Subs{sub_nums: fix_sub_vec, time_bit: fix_bit, factor: 0}];
+    //let mut sub_comb_bits = vec![fix_bit];
 
     for req_code in reqsubs.iter()
     {
         if let Some(req_subs) = subdata.get(req_code)
         {   
             let mut flag: bool = false;//check if require subject are included
-            let mut req_comb_dump: Vec<Vec<u32>> = Vec::new();
-            let mut req_bits_dump: Vec<[u64; 5]> = Vec::new();
+            let mut req_comb_dump: Vec<Subs> = Vec::new();
             for req_sub in req_subs.iter()
             { 
-                for (comb, bit) in sub_comb_list.iter().zip(sub_comb_bits.iter())
+                for subs in sub_comb_list.iter()
                 {
-                    match merge_time_bit(&req_sub.time_bit, &bit)
+                    match merge_time_bit(&req_sub.time_bit, &subs.time_bit)
                     {
                         Some(t) => {
                             flag = true;
-                            let mut c = comb.clone();
+                            let mut c = subs.sub_nums.clone();
                             c.push(req_sub.number);
-                            req_comb_dump.push(c);
-                            req_bits_dump.push(t);
+                            req_comb_dump.push(Subs{sub_nums: c, time_bit: t, factor: 0});
                         }
                         None => {}
                     }
                 }
             }
             sub_comb_list = req_comb_dump;
-            sub_comb_bits = req_bits_dump;
             if !flag
             {
                 return Ok(None);
@@ -110,30 +141,28 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         }
     }
     
+    let mut sub_comb_list = MinMaxHeap::from(sub_comb_list);
     for sel_code in selsubs.iter()
     {
         if let Some(sel_subs) = subdata.get(sel_code)
         {
-            let mut sel_comb_dump: Vec<Vec<u32>> = Vec::new();
-            let mut sel_bits_dump: Vec<[u64; 5]> = Vec::new();
+            let mut sel_comb_dump: Vec<Subs> = Vec::new();
             for sel_sub in sel_subs.iter()
             { 
-                for (comb, bit) in sub_comb_list.clone().iter().zip(sub_comb_bits.clone().iter())
+                for subs in sub_comb_list.clone().iter()
                 {
-                    match merge_time_bit(&sel_sub.time_bit, &bit)
+                    match merge_time_bit(&sel_sub.time_bit, &subs.time_bit)
                     {
                         Some(t) => {
-                            let mut c = comb.clone();
+                            let mut c = subs.sub_nums.clone();
                             c.push(sel_sub.number);
-                            sel_comb_dump.push(c);
-                            sel_bits_dump.push(t);
+                            sel_comb_dump.push(Subs{sub_nums: c, time_bit: t, factor: hamming_weight(&t) as i32});
                         }
                         None => {}
                     }
                 }
             }
-            sub_comb_list.append(&mut sel_comb_dump);
-            sub_comb_bits.append(&mut sel_bits_dump);
+            sub_comb_list.extend(sel_comb_dump.into_iter());
         }
         else
         {
@@ -141,13 +170,7 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         }
     }
 
-    let idxs : Vec<usize>  = (0..sub_comb_list.len()).collect();
-    let mut ans: Vec<(Vec<u32>, usize)> = sub_comb_list.into_iter().zip(idxs.into_iter()).collect();
-
-    ans.sort_unstable_by_key(|(_, b)| hamming_weight(&sub_comb_bits[b.clone()]));
-
-    let (mut ans, _): (Vec<Vec<u32>>, Vec<usize>)= ans.into_iter().unzip();
-    ans.reverse();
+    let ans = sub_comb_list.into_vec_asc().into_iter().map(|x| x.sub_nums).collect();
     Ok(Some(ans))
 }
 
