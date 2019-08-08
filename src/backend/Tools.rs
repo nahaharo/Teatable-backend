@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::backend::read_csv;
+use crate::backend::DataIO::Subject;
 
 fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
 {
@@ -39,7 +39,7 @@ fn hamming_weight(x: &[u64]) -> u32
     sum as u32
 }
 
-pub fn comb_sub(subdata: &HashMap<String, Vec<read_csv::Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &Vec<String>, selsubs: &Vec<String>) -> Result<Option<Vec<Vec<u32>>>, String>
+pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &Vec<String>, selsubs: &Vec<String>) -> Result<Option<Vec<Vec<u32>>>, String>
 {
     let mut fix_bit: [u64; 5] = [0,0,0,0,0];
     let mut fix_sub_vec = Vec::new();
