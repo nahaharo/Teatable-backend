@@ -26,9 +26,8 @@ redis = "*"
 r2d2_redis = "0.10.1"
 rand = "0.7.0"
 qstring = "0.6.0"
-
-[target.'cfg(linux)'.dependencies]
 tokio-uds = "0.2"
+min-max-heap = "1.2.2"
 ```
 
 #### Windows one
@@ -51,9 +50,7 @@ redis = "*"
 r2d2_redis = "0.10.1"
 rand = "0.7.0"
 qstring = "0.6.0"
-
-[target.'cfg(linux)'.dependencies]
-tokio-uds = "0.2"
+min-max-heap = "1.2.2"
 ```
 
 ### Redis url
@@ -113,3 +110,14 @@ fn main() {
 1. Install Cargo(https://crates.io/)
 2. Build project by "Cargo build --release"
 3. Run Target/Release/backend-rust(in windows, Target/Release/backend-rust.exe)
+
+
+
+## Performance optimize
+
+### Sortkey and using min-max heap
+
+before: 13571ms
+add sortkey: 11415ms
+change to minmaxheap: 10865ms
+add timeout: 11420ms
