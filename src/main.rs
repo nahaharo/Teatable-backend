@@ -48,6 +48,12 @@ fn query(req : HttpRequest) -> HttpResponse
         };
     }
 
+    // println!("fix : {:?}", &fix);
+    // println!("req : {:?}", &req);
+    // println!("sel : {:?}", &sel);
+    // println!("save: {:?}", &save);
+    // println!("id  : {:?}", &id);
+
     if (fix =="" || req =="" || sel =="") && (save == "") && (id == "")
     {
         let res = json!({"s":"f", "msg" :"비어있는 쿼리입니다."}).to_string();
@@ -172,7 +178,7 @@ fn test_redis() {
 fn bench_comb() {
     use std::time::{SystemTime};
     let now = SystemTime::now();
-    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string(), "SE108a".to_string()]).unwrap();
+    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string()]).unwrap();
     match now.elapsed() {
         Ok(elapsed) => {
             println!("{}", elapsed.as_millis());

@@ -65,7 +65,7 @@ fn time_and_place(time_place_str: &String) -> Result<(Vec<String>, [Vec<(u32, u3
             "수" => i = 2,
             "목" => i = 3,
             "금" => i = 4,
-            _ => panic!()
+            _ => continue
         };
         time_tuple[i].push(t);
         if time_bit[i] | bit != time_bit[i] + bit {panic!();}
@@ -131,16 +131,6 @@ pub fn get_json(subdata: &HashMap<String, Vec<Subject>>) -> String
                 time.insert(key, json!(t));
             }
 
-            // data.push(vec![
-            //     data_type::number32(s.number),
-            //     data_type::string(s.code.clone()),
-            //     data_type::number8(s.class_num),
-            //     data_type::string(s.class_name.clone()),
-            //     data_type::string(s.prof.clone()),
-            //     data_type::number8(s.credit),
-            //     data_type::place(s.place.clone()),
-            //     data_type::time(time),
-            // ]);
             data.push(vec![
                 json!(s.number),
                 json!(s.code.clone()),
@@ -151,8 +141,10 @@ pub fn get_json(subdata: &HashMap<String, Vec<Subject>>) -> String
                 json!(s.place.clone()),
                 json!(time)
             ]);
-            
         }
     }
-    json!({"head":json!(head),"data": data}).to_string()
+
+    data.sort_unstable_by_key(|x| x[0].as_i64().unwrap());
+
+    json!({"head":json!(head),"body": data}).to_string()
 }
