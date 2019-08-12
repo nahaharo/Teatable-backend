@@ -108,8 +108,9 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         }
     }
 
+    let mut i = 0;
+
     let mut sub_comb_list = vec![Subs{sub_nums: fix_sub_vec, time_bit: fix_bit, factor: 0}];
-    //let mut sub_comb_bits = vec![fix_bit];
 
     for req_code in reqsubs.iter()
     {
@@ -119,6 +120,23 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
             let mut req_comb_dump: Vec<Subs> = Vec::new();
             for req_sub in req_subs.iter()
             { 
+                if i%20 == 0
+                {
+                    match now.elapsed() {
+                        Ok(elapsed) => {
+                            if elapsed.as_secs()> 10
+                            {
+                                return Err(String::from("Function Timeout!"));
+                            }
+                        }
+                        Err(_) => {
+                            // an error occurred!
+                            return Err(String::from("Function Timeout!"));
+                        }
+                    }
+                }
+                i+=1;
+
                 for subs in sub_comb_list.iter()
                 {
                     match merge_time_bit(&req_sub.time_bit, &subs.time_bit)
@@ -143,18 +161,6 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         {
             return Err(String::from("Invalid required class code!"));
         }
-        match now.elapsed() {
-            Ok(elapsed) => {
-                if elapsed.as_secs()> 10 
-                {
-                    return Err(String::from("Function Timeout!"));
-                }
-            }
-            Err(_) => {
-                // an error occurred!
-                return Err(String::from("Function Timeout!"));
-            }
-        }
     }
     
     let mut sub_comb_list = MinMaxHeap::from(sub_comb_list);
@@ -165,6 +171,24 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
             let mut sel_comb_dump: Vec<Subs> = Vec::new();
             for sel_sub in sel_subs.iter()
             { 
+
+                if i%20 == 0
+                {
+                    match now.elapsed() {
+                        Ok(elapsed) => {
+                            if elapsed.as_secs()> 10
+                            {
+                                return Err(String::from("Function Timeout!"));
+                            }
+                        }
+                        Err(_) => {
+                            // an error occurred!
+                            return Err(String::from("Function Timeout!"));
+                        }
+                    }
+                }
+                i+=1;
+
                 for subs in sub_comb_list.clone().iter()
                 {
                     match merge_time_bit(&sel_sub.time_bit, &subs.time_bit)
@@ -183,18 +207,6 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
         else
         {
             return Err(String::from("Invalid selected class code!"));
-        }
-        match now.elapsed() {
-            Ok(elapsed) => {
-                if elapsed.as_secs()> 10
-                {
-                    return Err(String::from("Function Timeout!"));
-                }
-            }
-            Err(_) => {
-                // an error occurred!
-                return Err(String::from("Function Timeout!"));
-            }
         }
     }
 
