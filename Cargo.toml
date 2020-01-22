@@ -1,20 +1,6 @@
-[package]
-name = "backend-rust"
-version = "0.1.0"
-authors = ["hyun-wook ha <ha0146@naver.com>"]
-edition = "2018"
+[workspace]
 
-[dependencies]
-regex = "1"
-csv = "1"
-lazy_static = "1"
-serde_json = "1.0"
-serde = "1.0"
-actix-cors = "0.1.0"
-actix-web = "1.0"
-tokio-uds = "0.2"
-redis = "*"
-r2d2_redis = "0.10.1"
-rand = "0.7.0"
-qstring = "0.6.0"
-min-max-heap = "1.2.2"
+members = [
+    "backend",
+    "server"
+]

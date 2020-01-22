@@ -1,8 +1,9 @@
-pub mod backend;
+use backend;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use actix_web::{web, App, HttpResponse, HttpServer, HttpRequest};
 use actix_cors::Cors;
+
 use serde_json::{Value, json};
 use serde::{Serialize, Deserialize};
 use std::env;
@@ -141,51 +142,20 @@ fn main() {
 
 // And this function only gets compiled if the target OS is *not* linux
 #[cfg(target_os = "windows")]
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    let default_bind = "127.0.0.1:8088".to_string();
+    let bind = args.get(1).unwrap_or(&default_bind);
+
     let server = HttpServer::new(|| {
         App::new()
         .wrap(
-            Cors::new().send_wildcard()
+            Cors::new().send_wildcard().finish()
         )
         .service(web::resource("/comb").route(web::post().to(query)))
         .route("/", web::get().to(|| base(&SUB_JSON)))  
     });
-
-    let args: Vec<String> = env::args().collect();
-    let default_bind = "127.0.0.1:8088".to_string();
-    let bind = args.get(1).unwrap_or(&default_bind);
     print!("Service was binded to {:?}\n", bind);
-    server.bind(bind).unwrap().run().unwrap();
-}
-
-#[test]
-fn test_comb_sub() {
-    let ans = backend::Tools::comb_sub(&SUB_MAP, &vec![("HL303".to_string(), 31)], &mut vec!["HL203".to_string()], &mut vec!["SE106".to_string()]);
-    assert_eq!(ans.unwrap().unwrap().len(), 64);
-}
-
-#[test]
-fn test_redis() {
-    let q = backend::DB::add_share(&vec![1,2,3]).unwrap();
-    let ans = backend::DB::get_share(&q);
-    print!("{:?}\n", ans);
-    let ans = backend::DB::get_share(&"asdf".to_string());
-    print!("{:?}\n", ans);
-}
-
-
-#[test]
-fn bench_comb() {
-    use std::time::{SystemTime};
-    let now = SystemTime::now();
-    let _v = backend::Tools::comb_sub(&SUB_MAP, &Vec::new(), &mut Vec::new(), &mut vec!["HL104".to_string(), "HL106".to_string(), "HL111a".to_string(), "HL203".to_string(), "HL303".to_string(), "SE106".to_string()]).unwrap();
-    match now.elapsed() {
-        Ok(elapsed) => {
-            println!("{}", elapsed.as_millis());
-        }
-        Err(e) => {
-            // an error occurred!
-            println!("Error: {:?}", e);
-        }
-    }
+    server.bind(bind).unwrap().run().await
 }
