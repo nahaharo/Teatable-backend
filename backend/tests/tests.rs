@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use crate::*;
     use lazy_static::lazy_static;
     use std::collections::HashMap;
     lazy_static! {
