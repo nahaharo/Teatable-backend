@@ -9,6 +9,8 @@ use serde::{Serialize, Deserialize};
 use std::env;
 use qstring;
 
+mod crawler;
+
 
 lazy_static! {
     static ref SUB_MAP: HashMap<String, Vec<backend::DataIO::Subject>> = backend::DataIO::read_csv("./data/data.csv").unwrap();
@@ -61,7 +63,7 @@ fn query(req : HttpRequest) -> HttpResponse
         return HttpResponse::Ok().body(res);
     }
 
-    
+
     if save != ""
     {
         let c: Result<Vec<u32>, _> = serde_json::from_str(&save[1..save.len()-1]);
