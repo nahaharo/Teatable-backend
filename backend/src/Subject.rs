@@ -6,7 +6,7 @@ use regex;
 use serde_json::json;
 
 lazy_static! {
-static ref RE_DATE : regex::Regex = regex::Regex::new(r"([월화수목금토일])+(\w{2}:\w{2})-(\w{2}:\w{2})\((\w{2}-\w*)\)").unwrap();
+static ref RE_DATE : regex::Regex = regex::Regex::new(r"([월화수목금토일])+(\w{2}:\w{2})-(\w{2}:\w{2})\((\w{2}\s?-\s?\w*)\)").unwrap();
 static ref RE_TIME : regex::Regex = regex::Regex::new(r"(\w{2}):(\w{2})").unwrap();
 }
 
@@ -26,6 +26,24 @@ pub struct Subject
     pub place: Vec<String>,
     pub time_tuple: [Vec<(u32, u32)>; 5],
     pub time_bit: [u64; 5]
+}
+
+impl Subject {
+    pub fn new(number: u32, code: String, class_num: u8, class_name: String, prof: String, credit: u8, time_place: String) -> Self {
+        let (place, time, bits) = time_and_place(&time_place).unwrap();
+        Subject {
+            number: number,
+            code: code,
+            class_num: class_num,
+            class_name: class_name,
+            prof: prof,
+            credit: credit,
+            time_place: time_place,
+            place: place,
+            time_tuple: time,
+            time_bit: bits
+        }
+    }
 }
 
 fn time_to_num(time_str: &str) -> Result<u32, Box<dyn Error>>
@@ -74,6 +92,11 @@ fn time_and_place(time_place_str: &String) -> Result<(Vec<String>, [Vec<(u32, u3
     Ok((place, time_tuple, time_bit))
 }
 
+
+#[deprecated(
+    since = "2020",
+    note = "Do not use any csv. Use reqeust"
+)]
 pub fn read_csv(file_path : &str) -> Result<HashMap<String, Vec<Subject>>, Box<dyn Error>>
 {
     let file = File::open(file_path)?;
@@ -104,6 +127,10 @@ pub fn read_csv(file_path : &str) -> Result<HashMap<String, Vec<Subject>>, Box<d
     Ok(subjects)
 }
 
+#[deprecated(
+    since = "2020",
+    note = "Do not use this to generate json."
+)]
 pub fn get_json(subdata: &HashMap<String, Vec<Subject>>) -> String
 {
     let head = vec!["No", "과목번호", "분반", "교과목명", "담당교수", "학점", "강의실", "시간"];
