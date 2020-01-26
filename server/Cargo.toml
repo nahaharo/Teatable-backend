@@ -17,7 +17,16 @@ actix-rt = "1"
 tokio-uds = "0.2"
 qstring = "0.7"
 backend = { path= "../backend" }
+futures ="0.3.1"
 
 [[bin]]
 name = "server"
 path = "main.rs"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benches"
+harness = false
+path = "benches.rs"

@@ -4,7 +4,8 @@
 cargo.lock
 data
 .cargo
-
+foo.txt
+server/target
 #Added by cargo
 #
 #already existing elements are commented out
