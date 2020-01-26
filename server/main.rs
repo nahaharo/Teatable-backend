@@ -13,8 +13,8 @@ mod crawler;
 
 
 lazy_static! {
-    static ref SUB_MAP: HashMap<String, Vec<backend::DataIO::Subject>> = backend::DataIO::read_csv("./data/data.csv").unwrap();
-    static ref SUB_JSON: String = backend::DataIO::get_json(&SUB_MAP);
+    static ref SUB_MAP: HashMap<String, Vec<backend::Subject::Subject>> = backend::Subject::read_csv("./data/data.csv").unwrap();
+    static ref SUB_JSON: String = backend::Subject::get_json(&SUB_MAP);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
