@@ -2,6 +2,9 @@ use actix_web::client::{Connector, ClientBuilder};
 use actix_web::http::header::{ContentType};
 use openssl::ssl::{SslConnector, SslVerifyMode, SslMethod};
 use serde::{Serialize, Deserialize};
+use backend::Subject::*;
+use std::io::prelude::*;
+use std::fs::File;
 
 const SUBJECT_URL: &'static str = "https://welcome.dgist.ac.kr/ucs/ucsqProfRespSbjtInq/list.do;";
 
@@ -31,6 +34,23 @@ pub struct SubjectResponse {
     user: Vec<ResponseUnit>
 }
 
+impl SubjectResponse {
+    pub fn to_subject_vector(self) -> Vec<Subject> {
+        self.user.into_iter().map(|x| x.to_subject()).collect()
+    }
+    pub fn dump(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+    pub fn from_file(file_name: String) -> Self {
+        let mut file = File::open(file_name).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        let v: SubjectResponse = serde_json::from_slice(&buffer[..]).unwrap();
+        v
+    }
+}
+
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 pub struct ResponseUnit {
     ORGN_CLSF_NM: String,
@@ -59,6 +79,20 @@ pub struct ResponseUnit {
     TLSN_TIME: Option<String>,
     LECPLN_CNT: u32,
     RNUM: u32
+}
+
+impl ResponseUnit {
+    pub fn to_subject(self) -> Subject {
+        Subject::new(
+            self.RNUM,
+            self.SBJT_NO,
+            self.CLSS_NO.parse::<u8>().unwrap(),
+            self.SBJT_NM,
+            self.PROF_NM,
+            self.PNT.parse::<f32>().unwrap() as u8,
+            self.TLSN_TIME.unwrap_or("".to_string())
+        )
+    }
 }
 
 impl SubjectQuery {
@@ -101,7 +135,6 @@ impl SubjectQuery {
     }
 
     pub async fn send(&mut self) -> Result<SubjectResponse, String>{
-        println!("Start!!");
         let mut ssl_conn_builder = match SslConnector::builder(SslMethod::tls()) {
             Ok(t) => t,
             Err(_) => return Err(String::from("Fail to make ssl connector"))
@@ -146,10 +179,35 @@ impl SubjectQuery {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[actix_rt::test]
     async fn test_request() {
-        let a = SubjectQuery::new(2020).spring().undergraduate().send().await.unwrap();
-        println!("{:?}", &a.user[0].SBJT_NM);
+        let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        println!("{:?} {:?}", &a.user[0].SBJT_NM, &a.user[0].TLSN_TIME);
+    }
+    use backend::*;
+    use std::collections::HashMap;
+    #[actix_rt::test]
+    async fn test_combination() {
+        let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        let dump_string = a.dump();
+        let mut buffer = File::create("foo.txt").unwrap();
+        buffer.write(&dump_string.into_bytes()[..]).unwrap();
+
+
+        let subject_vec = a.to_subject_vector();
+        let combinator = Tools::SubjectCombinator::new(&subject_vec);
+        let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
+        let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
+        let mut sel_subs = vec!["HL320".to_string()];
+        let ans = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
+        println!("{:?}", ans.unwrap().unwrap().len());
+
+        let mut subjects = HashMap::new();
+        for sub in subject_vec.into_iter() {
+            subjects.entry(sub.code.clone()).or_insert_with(Vec::new).push(sub);
+        }
+
+        let ans2 = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
+        println!("{:?}", ans2.unwrap().unwrap().len());
     }
 }
