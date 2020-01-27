@@ -13,7 +13,7 @@ static ref RE_TIME : regex::Regex = regex::Regex::new(r"(\w{2}):(\w{2})").unwrap
 const BLOCK_SIZE: u32 = 30;//min
 const BLOCK_START: u32 = 60*9;//min
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subject
 {
     pub number: u32,

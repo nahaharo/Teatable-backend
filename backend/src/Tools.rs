@@ -187,15 +187,16 @@ impl SubjectCombinator {
 fn is_conflict(a: &[u64; 5], b: &[u64; 5]) -> bool
 {
     let mut tmp: [u64; 5] = [0,0,0,0,0];
+    let mut k = false;
     for i in 0..5 as usize
     {
-        if a[i] | b[i] != a[i] + b[i]//conflict occur
+        if a[i] | b[i] != a[i] ^ b[i]//conflict occur
         {
-            return true;
+            k = true;
         }
         tmp[i] = a[i] + b[i];
     }
-    false
+    k
 }
 
 fn hamming_weight(x: &[u64]) -> u32
@@ -250,15 +251,17 @@ impl Eq for Subs {}
 fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
 {
     let mut tmp: [u64; 5] = [0,0,0,0,0];
+    let mut k = false;
     for i in 0..5 as usize
     {
         if a[i] | b[i] != a[i] + b[i]//conflict occur
         {
-            return None;
+            k = true;
         }
         tmp[i] = a[i] + b[i];
     }
-    Some(tmp)
+    if k {None}
+    else {Some(tmp)}
 }
 
 #[deprecated(
