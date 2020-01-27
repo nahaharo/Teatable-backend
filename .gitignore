@@ -4,6 +4,7 @@
 cargo.lock
 data
 .cargo
+*.txt
 
 #Added by cargo
 #

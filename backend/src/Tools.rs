@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::DataIO::*;
+use super::Subject::*;
 
 
 use min_max_heap::MinMaxHeap;
@@ -37,15 +37,17 @@ impl Eq for Subs {}
 fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
 {
     let mut tmp: [u64; 5] = [0,0,0,0,0];
+    let mut k = false;
     for i in 0..5 as usize
     {
         if a[i] | b[i] != a[i] + b[i]//conflict occur
         {
-            return None;
+            k = true;
         }
         tmp[i] = a[i] + b[i];
     }
-    Some(tmp)
+    if k {None}
+    else {Some(tmp)}
 }
 
 
