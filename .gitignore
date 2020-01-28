@@ -5,6 +5,8 @@ cargo.lock
 data
 .cargo
 *.json
+*.log
+*.svg
 
 #Added by cargo
 #

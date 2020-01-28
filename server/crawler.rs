@@ -184,12 +184,11 @@ mod tests {
         let subject_vec = a.to_subject_vector();
         S::save(&subject_vec, "test.json");
 
-        let combinator = Tools::SubjectCombinator::new(&subject_vec);
-        let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
-        let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
-        let mut sel_subs = vec!["HL320".to_string()];
+        let combinator = Tools::SubjectCombinator::new(subject_vec.clone());
+        let fix_subs = vec![("SE324a", 0), ("SE334a", 0), ("SE380", 0), ("HL303", 31)];
+        let mut req_subs = vec!["HL203", "HL204", "HL305"];
+        let mut sel_subs = vec!["HL320"];
         let ans = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
-        println!("{:?}", ans.unwrap().unwrap().len());
 
         let mut subjects = HashMap::new();
         for sub in subject_vec.into_iter() {
@@ -197,6 +196,6 @@ mod tests {
         }
 
         let ans2 = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
-        println!("{:?}", ans2.unwrap().unwrap().len());
+        assert_eq!(ans.unwrap().unwrap().len(), ans2.unwrap().unwrap().len());
     }
 }

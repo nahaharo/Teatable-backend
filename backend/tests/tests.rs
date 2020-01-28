@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
     use backend::*;
+    use std::fs::File;
+    use std::io::prelude::*;
     #[test]
     fn test_redis() {
         let q = DB::add_share(&vec![1,2,3]).unwrap();

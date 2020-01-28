@@ -71,15 +71,18 @@ impl fmt::Debug for BitArray {
 pub struct SubjectCombinator {
     conflict_array: [BitArray; 256],
     code_to_subject: HashMap<String, Vec<u8>>,// {class code: [conflict_array idx of each class]}
+    code_to_num: HashMap<String, Vec<usize>>,
+    subjects: Vec<Subject>
 }
 
 impl SubjectCombinator {
-    pub fn new(subs: &Vec<Subject>) -> Self {
+    pub fn new(subs: Vec<Subject>) -> Self {
         let mut subject_map: HashMap<String, Vec<&Subject>> = HashMap::new();
+        let mut code_to_num: HashMap<String, Vec<usize>> = HashMap::new();
         let mut time_map: HashMap<[u64;5], u8> = HashMap::new();
         let mut idx_maps: HashMap<String, Vec<u8>> = HashMap::new();
         let mut idx: u8 = 0;
-        for e in subs.iter() {
+        for (subs_idx, e) in subs.iter().enumerate() {
             match subject_map.get_mut(&e.code) {
                 Some(v) => v.push(e),
                 None => { subject_map.insert(e.code.clone(), vec![e]); }
@@ -87,6 +90,10 @@ impl SubjectCombinator {
             if !time_map.contains_key(&e.time_bit) {
                 time_map.insert(e.time_bit.clone(), idx);
                 idx += 1;
+            }
+            match code_to_num.get_mut(&e.code) {
+                Some(v) => v.push(subs_idx),
+                None => { code_to_num.insert(e.code.clone(), vec![subs_idx]); }
             }
         }
 
@@ -107,34 +114,37 @@ impl SubjectCombinator {
         SubjectCombinator {
             conflict_array: conflict_bit,
             code_to_subject: idx_maps,
+            code_to_num: code_to_num,
+            subjects: subs
         }
     }
 
-    pub fn comb_sub(&self, fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
-     -> Result<Option<Vec<Vec<(String, usize)>>>, &str> {
-        reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
-        selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
+    pub fn comb_sub(&self, fixsubs: &Vec<(&str, /*Index, not class number*/usize)>, reqsubs: &mut Vec<&str>, selsubs: &mut Vec<&str>)
+     -> Result<Option<Vec<Vec<usize>>>, &str> {
+        reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
+        selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
+        let mut fix_subs = vec![];
         let mut fix_mask = BitArray::zero();
         for (sub_code, class_idx) in fixsubs.iter() {
-            let idx: u8 = match self.code_to_subject.get(sub_code) {
+            let idx: u8 = match self.code_to_subject.get(*sub_code) {
                 Some(t) => t[*class_idx as usize],
                 None => return Err("Invalid fix subject")
             } as u8;
+            fix_subs.push(self.code_to_num.get(*sub_code).unwrap()[*class_idx]);
             if fix_mask.get(idx) {return Ok(None)}
             fix_mask.set(idx, true);
         }
 
-        let mut sub_comb_list = vec![fixsubs.clone()];
+        let mut sub_comb_list = vec![fix_subs];
         let mut sub_mask_list = vec![fix_mask.clone()];
         for req_code in reqsubs.iter() {   
             let mut is_added = false;
             let mut tmp_req_comb_list = Vec::new();
             let mut tmp_req_mask_list = Vec::new();
-            if let Some(req_subs) = self.code_to_subject.get(req_code) { // req_subs: Vec<usize>
+            if let Some(req_subs) = self.code_to_subject.get(*req_code) { // req_subs: Vec<usize>
+                let req_subs_idxs = self.code_to_num.get(*req_code).unwrap();
                 for (class_idx, bit_idx) in req_subs.iter().enumerate() { 
-                    for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
-                        let combined_subs = &sub_comb_list[idx];
-                        let bit = &sub_mask_list[idx];
+                    for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // subs: Vec<(String, usize)>, bit: BitArray
                         let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
                         let combined_bit: u64x4 = bit.clone().into(); // current mask
                         let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
@@ -142,7 +152,7 @@ impl SubjectCombinator {
                             is_added = true;
                             let mut new_sub = combined_subs.clone();
                             let mut new_bit = bit.clone();
-                            new_sub.push((req_code.clone(), class_idx));
+                            new_sub.push(req_subs_idxs[class_idx]);
                             new_bit.set(*bit_idx, true);
                             tmp_req_comb_list.push(new_sub);
                             tmp_req_mask_list.push(new_bit);
@@ -159,7 +169,8 @@ impl SubjectCombinator {
         }
         
         for sel_code in selsubs.iter() {
-            if let Some(sel_subs) = self.code_to_subject.get(sel_code) {
+            if let Some(sel_subs) = self.code_to_subject.get(*sel_code) {
+                let sel_subs_idxs = self.code_to_num.get(*sel_code).unwrap();
                 for (class_idx, bit_idx) in sel_subs.iter().enumerate() { 
                     for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
                         let combined_subs = &sub_comb_list[idx];
@@ -170,7 +181,7 @@ impl SubjectCombinator {
                         if m {
                             let mut new_sub = combined_subs.clone();
                             let mut new_bit = bit.clone();
-                            new_sub.push((sel_code.clone(), class_idx));
+                            new_sub.push(sel_subs_idxs[class_idx]);
                             new_bit.set(*bit_idx, true);
                             sub_comb_list.push(new_sub);
                             sub_mask_list.push(new_bit);
@@ -271,19 +282,19 @@ fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
     since = "2020",
     note = "Do not use this to generate json."
 )]
-pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
+pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(&str, /*Index, not class number*/usize)>, reqsubs: &mut Vec<&str>, selsubs: &mut Vec<&str>)
      -> Result<Option<Vec<Vec<u32>>>, String>
 {
     let now = SystemTime::now();
 
-    reqsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
-    selsubs.sort_unstable_by_key(|x| subdata.get(x).unwrap_or(&Vec::new()).len());
+    reqsubs.sort_unstable_by_key(|x| subdata.get(*x).unwrap_or(&Vec::new()).len());
+    selsubs.sort_unstable_by_key(|x| subdata.get(*x).unwrap_or(&Vec::new()).len());
 
     let mut fix_bit: [u64; 5] = [0,0,0,0,0];
     let mut fix_sub_vec = Vec::new();
     for (code, num) in fixsubs.iter()
     {
-        if let Some(subs) = subdata.get(code)//If subdata.get(code) is not none => code is not valid
+        if let Some(subs) = subdata.get(*code)//If subdata.get(code) is not none => code is not valid
         {
             if let Some(sub) = subs.get(num.clone())//If get(code) is not none => num is not valid
             {
@@ -314,7 +325,7 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
 
     for req_code in reqsubs.iter()
     {
-        if let Some(req_subs) = subdata.get(req_code)
+        if let Some(req_subs) = subdata.get(*req_code)
         {   
             let mut flag: bool = false;//check if require subject are included
             let mut req_comb_dump: Vec<Subs> = Vec::new();
@@ -366,7 +377,7 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
     let mut sub_comb_list = MinMaxHeap::from(sub_comb_list);
     for sel_code in selsubs.iter()
     {
-        if let Some(sel_subs) = subdata.get(sel_code)
+        if let Some(sel_subs) = subdata.get(*sel_code)
         {
             let mut sel_comb_dump: Vec<Subs> = Vec::new();
             for sel_sub in sel_subs.iter()

@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::collections::HashMap;
 use regex;
 
@@ -34,7 +35,7 @@ pub struct Subject
 
 impl Subject {
     pub fn new(number: u32, code: String, class_num: u8, class_name: String, prof: String, credit: u8, time_place: String) -> Self {
-        let (place, time, bits) = time_and_place(&time_place).unwrap();
+        let (place, time, bits) = time_and_place(time_place.clone()).unwrap();
         Subject {
             number: number,
             code: code,
@@ -54,15 +55,11 @@ impl Subject {
         let mut buffer = File::create(file_name).unwrap();
         buffer.write(&dump_string.into_bytes()[..]).unwrap();
     }
-    pub fn load(file_name: &str) -> Vec<Self> {
-        let mut file = File::open(file_name).unwrap();
-        println!("Opened");
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).unwrap();
-        println!("Read");
-        let v: Vec<Self> = serde_json::from_slice(&buffer[..]).unwrap();
-        println!("End!");
-        v
+
+    pub fn load(path: &str) -> Vec<Self> {
+        let file = File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).unwrap()
     }
 }
 
@@ -86,12 +83,12 @@ fn time_to_bit(time_tuple: &(u32, u32)) -> Result<u64, Box<dyn Error>>
     Ok(b)
 }
 
-fn time_and_place(time_place_str: &String) -> Result<(Vec<String>, [Vec<(u32, u32)>; 5], [u64; 5]), Box<dyn Error>>
+fn time_and_place(time_place_str: String) -> Result<(Vec<String>, [Vec<(u32, u32)>; 5], [u64; 5]), Box<dyn Error>>
 {
     let mut place = Vec::new();
     let mut time_tuple: [Vec<(u32, u32)>; 5] = [Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new()];
     let mut time_bit: [u64; 5] = [0, 0, 0, 0, 0];
-    for cap in RE_DATE.captures_iter(time_place_str)
+    for cap in RE_DATE.captures_iter(&time_place_str[..])
     {
         place.push(cap[4].to_string());
         let t = (time_to_num(&cap[2])?, time_to_num(&cap[3])?);
@@ -129,7 +126,7 @@ pub fn read_csv(file_path : &str) -> Result<HashMap<String, Vec<Subject>>, Box<d
         let code = record[3].to_string();
 
         let time_place = record[16].to_string().replace(" ", "");
-        let (place, time_tuple, time_bit) = time_and_place(&time_place)?;
+        let (place, time_tuple, time_bit) = time_and_place(time_place.clone())?;
 
         let sub = Subject { 
             number: record[0].parse::<u32>()?-1, 

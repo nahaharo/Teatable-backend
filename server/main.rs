@@ -107,9 +107,9 @@ fn query(req : HttpRequest) -> HttpResponse
         }
     }
 
-    let fix_subs: Vec<(String, usize)> = serde_json::from_str(fix).unwrap_or(Vec::new());
-    let mut req_subs: Vec<String> = serde_json::from_str(req).unwrap_or(Vec::new());
-    let mut sel_subs: Vec<String> = serde_json::from_str(sel).unwrap_or(Vec::new());
+    let fix_subs: Vec<(&str, usize)> = serde_json::from_str(fix).unwrap_or(Vec::new());
+    let mut req_subs: Vec<&str> = serde_json::from_str(req).unwrap_or(Vec::new());
+    let mut sel_subs: Vec<&str> = serde_json::from_str(sel).unwrap_or(Vec::new());
     let ans = backend::Tools::comb_sub(&SUB_MAP, &fix_subs, &mut req_subs, &mut sel_subs);
     let res: String;
     match ans
