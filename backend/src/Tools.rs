@@ -14,15 +14,15 @@ pub struct BitArray {
 impl BitArray {
     #[inline(always)]
     fn get(&self, i: u8) -> bool {
-        (self.elem[(i/64) as usize]>>(i%64))%2 != 0
+        (self.elem[(i>>64) as usize]>>(i&63))&1 != 0
     }
     #[inline(always)]
     fn set(&mut self, i: u8, flag: bool) {
         if flag {
-            self.elem[(i/64) as usize] |= (1 as u64) << (i%64);
+            self.elem[(i>>6) as usize] |= (1 as u64) << (i&63);
         }
         else {
-            self.elem[(i/64) as usize] &= !((1 as u64) << (i%64));
+            self.elem[(i>>6) as usize] &= !((1 as u64) << (i&63));
         }
         
     }
