@@ -4,7 +4,7 @@
 cargo.lock
 data
 .cargo
-*.txt
+*.json
 
 #Added by cargo
 #

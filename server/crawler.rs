@@ -3,8 +3,6 @@ use actix_web::http::header::{ContentType};
 use openssl::ssl::{SslConnector, SslVerifyMode, SslMethod};
 use serde::{Serialize, Deserialize};
 use backend::Subject::*;
-use std::io::prelude::*;
-use std::fs::File;
 
 const SUBJECT_URL: &'static str = "https://welcome.dgist.ac.kr/ucs/ucsqProfRespSbjtInq/list.do;";
 
@@ -37,16 +35,6 @@ pub struct SubjectResponse {
 impl SubjectResponse {
     pub fn to_subject_vector(self) -> Vec<Subject> {
         self.user.into_iter().map(|x| x.to_subject()).collect()
-    }
-    pub fn dump(&self) -> String {
-        serde_json::to_string(self).unwrap()
-    }
-    pub fn from_file(file_name: String) -> Self {
-        let mut file = File::open(file_name).unwrap();
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).unwrap();
-        let v: SubjectResponse = serde_json::from_slice(&buffer[..]).unwrap();
-        v
     }
 }
 
@@ -186,17 +174,16 @@ mod tests {
         println!("{:?} {:?}", &a.user[0].SBJT_NM, &a.user[0].TLSN_TIME);
     }
     use backend::*;
+    use backend::Subject::Subject as S;
     use std::collections::HashMap;
     
     #[actix_rt::test]
     async fn test_combination() {
         let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
-        let dump_string = a.dump();
-        let mut buffer = File::create("foo.txt").unwrap();
-        buffer.write(&dump_string.into_bytes()[..]).unwrap();
-
 
         let subject_vec = a.to_subject_vector();
+        S::save(&subject_vec, "test.json");
+
         let combinator = Tools::SubjectCombinator::new(&subject_vec);
         let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
         let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];

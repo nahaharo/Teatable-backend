@@ -1,9 +1,13 @@
 use std::error::Error;
 use std::fs::File;
 use std::collections::HashMap;
-use lazy_static::lazy_static;
+use std::io::prelude::*;
 use regex;
+
+use lazy_static::lazy_static;
 use serde_json::json;
+use serde::{Serialize, Deserialize};
+
 
 lazy_static! {
 static ref RE_DATE : regex::Regex = regex::Regex::new(r"([월화수목금토일])+(\w{2}:\w{2})-(\w{2}:\w{2})\((\w{2}\s?-\s?\w*)\)").unwrap();
@@ -13,7 +17,7 @@ static ref RE_TIME : regex::Regex = regex::Regex::new(r"(\w{2}):(\w{2})").unwrap
 const BLOCK_SIZE: u32 = 30;//min
 const BLOCK_START: u32 = 60*9;//min
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subject
 {
     pub number: u32,
@@ -43,6 +47,22 @@ impl Subject {
             time_tuple: time,
             time_bit: bits
         }
+    }
+
+    pub fn save(subjects: &Vec<Subject>, file_name: &str) {
+        let dump_string = serde_json::to_string(subjects).unwrap();
+        let mut buffer = File::create(file_name).unwrap();
+        buffer.write(&dump_string.into_bytes()[..]).unwrap();
+    }
+    pub fn load(file_name: &str) -> Vec<Self> {
+        let mut file = File::open(file_name).unwrap();
+        println!("Opened");
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        println!("Read");
+        let v: Vec<Self> = serde_json::from_slice(&buffer[..]).unwrap();
+        println!("End!");
+        v
     }
 }
 
