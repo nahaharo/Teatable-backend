@@ -14,7 +14,7 @@ pub struct BitArray {
 impl BitArray {
     #[inline(always)]
     fn get(&self, i: u8) -> bool {
-        (self.elem[(i>>64) as usize]>>(i&63))&1 != 0
+        (self.elem[(i>>6) as usize]>>(i&63))&1 != 0
     }
     #[inline(always)]
     fn set(&mut self, i: u8, flag: bool) {
