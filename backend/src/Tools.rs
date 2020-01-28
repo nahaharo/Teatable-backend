@@ -16,11 +16,11 @@ pub struct BitArray {
 
 impl BitArray {
     #[inline(always)]
-    fn get(&self, i: u8) -> bool {
+    pub fn get(&self, i: u8) -> bool {
         (self.elem[(i>>6) as usize]>>(i&63))&1 != 0
     }
     #[inline(always)]
-    fn set(&mut self, i: u8, flag: bool) {
+    pub fn set(&mut self, i: u8, flag: bool) {
         if flag {
             self.elem[(i>>6) as usize] |= (1 as u64) << (i&63);
         }
@@ -30,7 +30,7 @@ impl BitArray {
         
     }
     #[inline(always)]
-    fn zero() -> Self {
+    pub fn zero() -> Self {
         BitArray::from([
             0 as u64,0 as u64,0 as u64,0 as u64
         ])
@@ -412,31 +412,4 @@ pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(String, /
 
     let ans = sub_comb_list.into_vec_asc().into_iter().map(|x| x.sub_nums).collect();
     Ok(Some(ans))
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_bitarray() {
-        let mut a = BitArray::zero();
-        a.set(10, true);
-        println!("{:?}", &a);
-        assert_eq!(a.get(10), true);
-        assert_eq!(a.get(9), false);
-        assert_eq!(a.get(11), false);
-        a.set(10, false);
-        a.set(9, true);
-        println!("{:?}", &a);
-        assert_eq!(a.get(10), false);
-        assert_eq!(a.get(9), true);
-        assert_eq!(a.get(11), false);
-        a.set(101, true);
-        a.set(0, true);
-        println!("{:?}", &a);
-        assert_eq!(a.get(100), false);
-        assert_eq!(a.get(101), true);
-        assert_eq!(a.get(102), false);
-    }
 }
