@@ -178,37 +178,38 @@ impl SubjectQuery {
 
 #[cfg(test)]
 mod tests {
+    
     use super::*;
     #[actix_rt::test]
     async fn test_request() {
         let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
         println!("{:?} {:?}", &a.user[0].SBJT_NM, &a.user[0].TLSN_TIME);
     }
+    use backend::*;
+    use std::collections::HashMap;
+    
+    #[actix_rt::test]
+    async fn test_combination() {
+        let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        let dump_string = a.dump();
+        let mut buffer = File::create("foo.txt").unwrap();
+        buffer.write(&dump_string.into_bytes()[..]).unwrap();
 
-    // use backend::*;
-    // use std::collections::HashMap;
-    // #[actix_rt::test]
-    // async fn test_combination() {
-    //     let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
-    //     let dump_string = a.dump();
-    //     let mut buffer = File::create("foo.txt").unwrap();
-    //     buffer.write(&dump_string.into_bytes()[..]).unwrap();
 
+        let subject_vec = a.to_subject_vector();
+        let combinator = Tools::SubjectCombinator::new(&subject_vec);
+        let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
+        let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
+        let mut sel_subs = vec!["HL320".to_string()];
+        let ans = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
+        println!("{:?}", ans.unwrap().unwrap().len());
 
-    //     let subject_vec = a.to_subject_vector();
-    //     let combinator = Tools::SubjectCombinator::new(&subject_vec);
-    //     let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
-    //     let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
-    //     let mut sel_subs = vec!["HL320".to_string()];
-    //     let ans = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
-    //     println!("{:?}", ans.unwrap().unwrap().len());
+        let mut subjects = HashMap::new();
+        for sub in subject_vec.into_iter() {
+            subjects.entry(sub.code.clone()).or_insert_with(Vec::new).push(sub);
+        }
 
-    //     let mut subjects = HashMap::new();
-    //     for sub in subject_vec.into_iter() {
-    //         subjects.entry(sub.code.clone()).or_insert_with(Vec::new).push(sub);
-    //     }
-
-    //     let ans2 = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
-    //     println!("{:?}", ans2.unwrap().unwrap().len());
-    // }
+        let ans2 = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
+        println!("{:?}", ans2.unwrap().unwrap().len());
+    }
 }

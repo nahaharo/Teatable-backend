@@ -128,7 +128,8 @@ fn query(req : HttpRequest) -> HttpResponse
 
 // This function only gets compiled if the target OS is linux
 #[cfg(target_os = "linux")]
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(|| {
         App::new()
         .service(web::resource("/comb").route(web::post().to(query)))
@@ -139,7 +140,7 @@ fn main() {
     let default_bind = "/tmp/actix.socket".to_string();
     let bind = args.get(1).unwrap_or(&default_bind);
     print!("Service was binded to {:?}\n", bind);
-    server.bind_uds(bind).unwrap().run().unwrap();
+    server.bind_uds(bind).unwrap().run().await
 }
 
 // And this function only gets compiled if the target OS is *not* linux

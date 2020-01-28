@@ -121,3 +121,10 @@ before: 13571ms
 add sortkey: 11415ms
 change to minmaxheap: 10865ms
 add timeout: 11420ms
+
+## Query Processing Order
+(class number start with 0)
+1. User send query. ( [ (code, class number)... ] )
+2. Refactor query to timebit based index.
+3. Combine with index.
+4. Recover Class based on index. { comb: [[idx... ]... ], head: [(Code, class_number)...] }
