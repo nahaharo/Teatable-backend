@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs::File;
-use std::collections::HashMap;
 use std::io::prelude::*;
+use std::collections::HashMap;
 use regex;
 
 use lazy_static::lazy_static;
