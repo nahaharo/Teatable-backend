@@ -1,3 +1,10 @@
+#[cfg(not(target_env = "msvc"))]
+use jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 use backend;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -10,12 +17,6 @@ use std::env;
 use qstring;
 
 mod crawler;
-
-
-lazy_static! {
-    static ref SUB_MAP: HashMap<String, Vec<backend::Subject::Subject>> = backend::Subject::read_csv("./data/data.csv").unwrap();
-    static ref SUB_JSON: String = backend::Subject::get_json(&SUB_MAP);
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct SearchReq {
@@ -110,19 +111,21 @@ fn query(req : HttpRequest) -> HttpResponse
     let fix_subs: Vec<(&str, usize)> = serde_json::from_str(fix).unwrap_or(Vec::new());
     let mut req_subs: Vec<&str> = serde_json::from_str(req).unwrap_or(Vec::new());
     let mut sel_subs: Vec<&str> = serde_json::from_str(sel).unwrap_or(Vec::new());
-    let ans = backend::Tools::comb_sub(&SUB_MAP, &fix_subs, &mut req_subs, &mut sel_subs);
-    let res: String;
-    match ans
-    {
-        Ok(t) =>  {
-            match t
-            {
-                Some(v) => res = json!({"s":"s", "comb":v}).to_string(),
-                None => res = json!({"s":"f", "msg" :"조합이 없습니다."}).to_string()
-            }
-        },
-        Err(t) => res = json!({"s":"f", "msg" :t}).to_string()
-    }
+    //let ans = backend::Tools::comb_sub(&SUB_MAP, &fix_subs, &mut req_subs, &mut sel_subs);
+    // let res: String;
+    // match ans
+    // {
+    //     Ok(t) =>  {
+    //         match t
+    //         {
+    //             Some(v) => res = json!({"s":"s", "comb":v}).to_string(),
+    //             None => res = json!({"s":"f", "msg" :"조합이 없습니다."}).to_string()
+    //         }
+    //     },
+    //     Err(t) => res = json!({"s":"f", "msg" :t}).to_string()
+    // }
+
+    let res: String = json!({"s":"f", "msg" :"가져오기에 실패했습니다."}).to_string();
     HttpResponse::Ok().body(res)
 }
 
@@ -157,7 +160,6 @@ async fn main() -> std::io::Result<()> {
             Cors::new().send_wildcard().finish()
         )
         .service(web::resource("/comb").route(web::post().to(query)))
-        .route("/", web::get().to(|| base(&SUB_JSON)))  
     });
     print!("Service was binded to {:?}\n", bind);
     server.bind(bind).unwrap().run().await

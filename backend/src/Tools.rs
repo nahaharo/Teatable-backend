@@ -17,15 +17,15 @@ pub struct BitArray {
 impl BitArray {
     #[inline(always)]
     pub fn get(&self, i: u8) -> bool {
-        (self.elem[(i>>6) as usize]>>(i&63))&1 != 0
+        (self.elem[(i/64) as usize]>>(i%64))%2 != 0
     }
     #[inline(always)]
     pub fn set(&mut self, i: u8, flag: bool) {
         if flag {
-            self.elem[(i>>6) as usize] |= (1 as u64) << (i&63);
+            self.elem[(i/64) as usize] |= (1 as u64) << (i%64);
         }
         else {
-            self.elem[(i>>6) as usize] &= !((1 as u64) << (i&63));
+            self.elem[(i/64) as usize] &= !((1 as u64) << (i%64));
         }
         
     }
@@ -123,7 +123,8 @@ impl SubjectCombinator {
      -> Result<Option<Vec<Vec<usize>>>, &str> {
         reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
         selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
-        let mut fix_subs = vec![];
+
+        let mut fix_subs = Vec::with_capacity(fixsubs.len() + reqsubs.len() + selsubs.len());
         let mut fix_mask = BitArray::zero();
         for (sub_code, class_idx) in fixsubs.iter() {
             let idx: u8 = match self.code_to_subject.get(*sub_code) {

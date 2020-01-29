@@ -23,7 +23,7 @@ fn old_combination(b: &mut Bencher) {
     }
 
     b.iter(|| {
-        Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
+        let _ = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
     });
 }
 
@@ -41,6 +41,6 @@ fn new_combination(b: &mut Bencher) {
     let mut sel_subs = black_box(vec![]);
 
     b.iter(|| {
-        combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
+        let _ = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
     });
 }

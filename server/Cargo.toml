@@ -19,6 +19,9 @@ qstring = "0.7"
 backend = { path= "../backend" }
 futures ="0.3.1"
 
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = "0.3.2"
+
 [[bin]]
 name = "server"
 path = "main.rs"
