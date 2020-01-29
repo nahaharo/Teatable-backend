@@ -6,8 +6,6 @@ use jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 use backend;
-use lazy_static::lazy_static;
-use std::collections::HashMap;
 use actix_web::{web, App, HttpResponse, HttpServer, HttpRequest};
 use actix_cors::Cors;
 
@@ -23,10 +21,6 @@ struct SearchReq {
     fix: Value,
     req: Value,
     sel: Value,
-}
-
-fn base(subs: &String) -> HttpResponse {
-    HttpResponse::Ok().body(subs)
 }
 
 fn query(req : HttpRequest) -> HttpResponse

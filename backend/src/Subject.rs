@@ -2,11 +2,9 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::collections::HashMap;
 use regex;
 
 use lazy_static::lazy_static;
-use serde_json::json;
 use serde::{Serialize, Deserialize};
 
 
