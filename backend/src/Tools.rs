@@ -8,6 +8,9 @@ use std::cmp::Ordering;
 use std::time::{SystemTime};
 use std::fmt;
 use packed_simd::{u64x4};
+use std::rc::Rc;
+
+use lifeguard::*;
 
 #[derive(Copy, Clone)]
 pub struct BitArray {
@@ -72,11 +75,13 @@ pub struct SubjectCombinator {
     conflict_array: [BitArray; 256],
     code_to_subject: HashMap<String, Vec<u8>>,// {class code: [conflict_array idx of each class]}
     code_to_num: HashMap<String, Vec<usize>>,
-    subjects: Vec<Subject>
+    subjects: Vec<Subject>,
+
+    pool: Rc<Pool<Vec<usize>>>,
 }
 
 impl SubjectCombinator {
-    pub fn new(subs: Vec<Subject>) -> Self {
+    pub fn new(subs: Vec<Subject>, obj_pool: Rc<Pool<Vec<usize>>>) -> Self {
         let mut subject_map: HashMap<String, Vec<&Subject>> = HashMap::new();
         let mut code_to_num: HashMap<String, Vec<usize>> = HashMap::new();
         let mut time_map: HashMap<[u64;5], u8> = HashMap::new();
@@ -115,16 +120,17 @@ impl SubjectCombinator {
             conflict_array: conflict_bit,
             code_to_subject: idx_maps,
             code_to_num: code_to_num,
-            subjects: subs
+            subjects: subs,
+            pool: obj_pool
         }
     }
 
     pub fn comb_sub(&self, fixsubs: &Vec<(&str, /*Index, not class number*/usize)>, reqsubs: &mut Vec<&str>, selsubs: &mut Vec<&str>)
-     -> Result<Option<Vec<Vec<usize>>>, &str> {
+     -> Result<Option<Vec<Recycled<Vec<usize>>>>, &str> {
         reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
         selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
 
-        let mut fix_subs = Vec::with_capacity(fixsubs.len() + reqsubs.len() + selsubs.len());
+        let mut fix_subs = self.pool.new();
         let mut fix_mask = BitArray::zero();
         for (sub_code, class_idx) in fixsubs.iter() {
             let idx: u8 = match self.code_to_subject.get(*sub_code) {
@@ -136,12 +142,17 @@ impl SubjectCombinator {
             fix_mask.set(idx, true);
         }
 
-        let mut sub_comb_list = vec![fix_subs];
-        let mut sub_mask_list = vec![fix_mask.clone()];
+        let mut sub_comb_list = Vec::with_capacity(20);
+        sub_comb_list.push(fix_subs);
+        let mut sub_mask_list = Vec::with_capacity(20);
+        sub_mask_list.push(fix_mask.clone());
+
         for req_code in reqsubs.iter() {   
             let mut is_added = false;
-            let mut tmp_req_comb_list = Vec::new();
-            let mut tmp_req_mask_list = Vec::new();
+
+            let mut tmp_req_comb_list = Vec::with_capacity(sub_comb_list.len()+10);
+            let mut tmp_req_mask_list = Vec::with_capacity(sub_comb_list.len()+10);
+
             if let Some(req_subs) = self.code_to_subject.get(*req_code) { // req_subs: Vec<usize>
                 let req_subs_idxs = self.code_to_num.get(*req_code).unwrap();
                 for (class_idx, bit_idx) in req_subs.iter().enumerate() { 
@@ -151,7 +162,7 @@ impl SubjectCombinator {
                         let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
                         if m {
                             is_added = true;
-                            let mut new_sub = combined_subs.clone();
+                            let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
                             let mut new_bit = bit.clone();
                             new_sub.push(req_subs_idxs[class_idx]);
                             new_bit.set(*bit_idx, true);
@@ -180,7 +191,7 @@ impl SubjectCombinator {
                         let combined_bit: u64x4 = bit.clone().into(); // current mask
                         let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
                         if m {
-                            let mut new_sub = combined_subs.clone();
+                            let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
                             let mut new_bit = bit.clone();
                             new_sub.push(sel_subs_idxs[class_idx]);
                             new_bit.set(*bit_idx, true);

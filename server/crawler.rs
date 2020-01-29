@@ -176,15 +176,18 @@ mod tests {
     use backend::*;
     use backend::Subject::Subject as S;
     use std::collections::HashMap;
+    use std::rc::Rc;
+    use lifeguard::*;
     
     #[actix_rt::test]
     async fn test_combination() {
         let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        let mut pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
 
         let subject_vec = a.to_subject_vector();
         S::save(&subject_vec, "test.json");
 
-        let combinator = Tools::SubjectCombinator::new(subject_vec.clone());
+        let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));
         let fix_subs = vec![("SE324a", 0), ("SE334a", 0), ("SE380", 0), ("HL303", 31)];
         let mut req_subs = vec!["HL203", "HL204", "HL305"];
         let mut sel_subs = vec!["HL320"];

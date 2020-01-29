@@ -2,8 +2,11 @@
 extern crate test;
 
 use test::{Bencher, black_box};
-use backend::*;
 use std::collections::HashMap;
+use std::rc::Rc;
+use lifeguard::*;
+
+use backend::*;
 
 #[bench]
 fn old_combination(b: &mut Bencher) {
@@ -30,8 +33,9 @@ fn old_combination(b: &mut Bencher) {
 #[bench]
 fn new_combination(b: &mut Bencher) {
     let subject_vec = Subject::Subject::load("data.json");
-    
-    let combinator = Tools::SubjectCombinator::new(subject_vec.clone());
+    let mut pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
+
+    let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));
     // let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
     // let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
     // let mut sel_subs = vec!["HL320".to_string()];

@@ -17,3 +17,4 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 http = "0.2"
 packed_simd = "0.3.3"
+lifeguard = "0.6.0"

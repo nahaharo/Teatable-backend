@@ -18,6 +18,7 @@ tokio-uds = "0.2"
 qstring = "0.7"
 backend = { path= "../backend" }
 futures ="0.3.1"
+lifeguard = "0.6.0"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"
