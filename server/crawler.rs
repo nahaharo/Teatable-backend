@@ -168,37 +168,11 @@ impl SubjectQuery {
 mod tests {
     
     use super::*;
+    use backend::Subject::Subject;
     #[actix_rt::test]
     async fn test_request() {
         let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
-        println!("{:?} {:?}", &a.user[0].SBJT_NM, &a.user[0].TLSN_TIME);
-    }
-    use backend::*;
-    use backend::Subject::Subject as S;
-    use std::collections::HashMap;
-    use std::rc::Rc;
-    use lifeguard::*;
-    
-    #[actix_rt::test]
-    async fn test_combination() {
-        let a = SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
-        let mut pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
-
         let subject_vec = a.to_subject_vector();
-        S::save(&subject_vec, "test.json");
-
-        let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));
-        let fix_subs = vec![("SE324a", 0), ("SE334a", 0), ("SE380", 0), ("HL303", 31)];
-        let mut req_subs = vec!["HL203", "HL204", "HL305"];
-        let mut sel_subs = vec!["HL320"];
-        let ans = combinator.comb_sub(&fix_subs, &mut req_subs, &mut sel_subs);
-
-        let mut subjects = HashMap::new();
-        for sub in subject_vec.into_iter() {
-            subjects.entry(sub.code.clone()).or_insert_with(Vec::new).push(sub);
-        }
-
-        let ans2 = Tools::comb_sub(&subjects, &fix_subs, &mut req_subs, &mut sel_subs);
-        assert_eq!(ans.unwrap().unwrap().len(), ans2.unwrap().unwrap().len());
+        Subject::save(&subject_vec, "test.json");
     }
 }

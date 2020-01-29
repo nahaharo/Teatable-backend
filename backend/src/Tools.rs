@@ -2,10 +2,6 @@ use std::collections::HashMap;
 
 use super::Subject::*;
 
-
-use min_max_heap::MinMaxHeap;
-use std::cmp::Ordering;
-use std::time::{SystemTime};
 use std::fmt;
 use packed_simd::{u64x4};
 use std::rc::Rc;
@@ -71,6 +67,7 @@ impl fmt::Debug for BitArray {
     }
 }
 
+#[derive(Clone)]
 pub struct SubjectCombinator {
     conflict_array: [BitArray; 256],
     code_to_subject: HashMap<String, Vec<u8>>,// {class code: [conflict_array idx of each class]}
@@ -125,19 +122,19 @@ impl SubjectCombinator {
         }
     }
 
-    pub fn comb_sub(&self, fixsubs: &Vec<(&str, /*Index, not class number*/usize)>, reqsubs: &mut Vec<&str>, selsubs: &mut Vec<&str>)
-     -> Result<Option<Vec<Recycled<Vec<usize>>>>, &str> {
-        reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
-        selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(*x).unwrap_or(&Vec::new()).len());
+    pub fn combinate_subjects(&self, fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
+     -> Result<Option<Vec<Vec<usize>>>, &str> {
+        reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
+        selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
 
         let mut fix_subs = self.pool.new();
         let mut fix_mask = BitArray::zero();
         for (sub_code, class_idx) in fixsubs.iter() {
-            let idx: u8 = match self.code_to_subject.get(*sub_code) {
+            let idx: u8 = match self.code_to_subject.get(sub_code) {
                 Some(t) => t[*class_idx as usize],
                 None => return Err("Invalid fix subject")
             } as u8;
-            fix_subs.push(self.code_to_num.get(*sub_code).unwrap()[*class_idx]);
+            fix_subs.push(self.code_to_num.get(sub_code).unwrap()[*class_idx]);
             if fix_mask.get(idx) {return Ok(None)}
             fix_mask.set(idx, true);
         }
@@ -153,8 +150,8 @@ impl SubjectCombinator {
             let mut tmp_req_comb_list = Vec::with_capacity(sub_comb_list.len()+10);
             let mut tmp_req_mask_list = Vec::with_capacity(sub_comb_list.len()+10);
 
-            if let Some(req_subs) = self.code_to_subject.get(*req_code) { // req_subs: Vec<usize>
-                let req_subs_idxs = self.code_to_num.get(*req_code).unwrap();
+            if let Some(req_subs) = self.code_to_subject.get(req_code) { // req_subs: Vec<usize>
+                let req_subs_idxs = self.code_to_num.get(req_code).unwrap();
                 for (class_idx, bit_idx) in req_subs.iter().enumerate() { 
                     for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // subs: Vec<(String, usize)>, bit: BitArray
                         let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
@@ -181,8 +178,8 @@ impl SubjectCombinator {
         }
         
         for sel_code in selsubs.iter() {
-            if let Some(sel_subs) = self.code_to_subject.get(*sel_code) {
-                let sel_subs_idxs = self.code_to_num.get(*sel_code).unwrap();
+            if let Some(sel_subs) = self.code_to_subject.get(sel_code) {
+                let sel_subs_idxs = self.code_to_num.get(sel_code).unwrap();
                 for (class_idx, bit_idx) in sel_subs.iter().enumerate() { 
                     for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
                         let combined_subs = &sub_comb_list[idx];
@@ -204,11 +201,21 @@ impl SubjectCombinator {
             else { return Err("Invalid selected subject") }
         }
 
-        Ok(Some( 
-            sub_comb_list
-        ))
+        if sub_comb_list.len() == 0 {
+            Ok(None)
+        }
+        else {
+            Ok(Some( 
+                sub_comb_list.into_iter().map(
+                    |x| x.detach()
+                ).collect()
+            ))
+        }
     }
 }
+
+unsafe impl Send for SubjectCombinator {}
+unsafe impl Sync for SubjectCombinator {}
 
 fn is_conflict(a: &[u64; 5], b: &[u64; 5]) -> bool
 {
@@ -225,7 +232,7 @@ fn is_conflict(a: &[u64; 5], b: &[u64; 5]) -> bool
     k
 }
 
-fn hamming_weight(x: &[u64]) -> u32
+fn hamming_weight(x: &[u64; 5]) -> u32
 {
     const M1:  u64  = 0x5555555555555555;
     const M2:  u64  = 0x3333333333333333;
@@ -245,194 +252,4 @@ fn hamming_weight(x: &[u64]) -> u32
         sum += h;
     }
     sum as u32
-}
-
-#[derive(Clone, Debug)]
-struct Subs {
-    sub_nums: Vec<u32>,
-    time_bit: [u64; 5],
-    factor: i32,
-}
-
-impl Ord for Subs {
-    fn cmp(&self, other: &Subs) -> Ordering {
-        other.factor.cmp(&self.factor)
-    }
-}
-
-impl PartialOrd for Subs {
-    fn partial_cmp(&self, other: &Subs)-> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for Subs {
-    fn eq(&self, other: &Subs) -> bool {
-        self.factor == other.factor
-    }
-}
-
-impl Eq for Subs {}
-
-fn merge_time_bit(a: &[u64; 5], b: &[u64; 5]) -> Option<[u64; 5]>
-{
-    let mut tmp: [u64; 5] = [0,0,0,0,0];
-    let mut k = false;
-    for i in 0..5 as usize
-    {
-        if a[i] | b[i] != a[i] + b[i]//conflict occur
-        {
-            k = true;
-        }
-        tmp[i] = a[i] + b[i];
-    }
-    if k {None}
-    else {Some(tmp)}
-}
-
-#[deprecated(
-    since = "2020",
-    note = "Do not use this to generate json."
-)]
-pub fn comb_sub(subdata: &HashMap<String, Vec<Subject>>,fixsubs: &Vec<(&str, /*Index, not class number*/usize)>, reqsubs: &mut Vec<&str>, selsubs: &mut Vec<&str>)
-     -> Result<Option<Vec<Vec<u32>>>, String>
-{
-    let now = SystemTime::now();
-
-    reqsubs.sort_unstable_by_key(|x| subdata.get(*x).unwrap_or(&Vec::new()).len());
-    selsubs.sort_unstable_by_key(|x| subdata.get(*x).unwrap_or(&Vec::new()).len());
-
-    let mut fix_bit: [u64; 5] = [0,0,0,0,0];
-    let mut fix_sub_vec = Vec::new();
-    for (code, num) in fixsubs.iter()
-    {
-        if let Some(subs) = subdata.get(*code)//If subdata.get(code) is not none => code is not valid
-        {
-            if let Some(sub) = subs.get(num.clone())//If get(code) is not none => num is not valid
-            {
-                let sub_bit = &sub.time_bit;
-                match merge_time_bit(&fix_bit, &sub_bit)
-                {
-                    Some(t) => {
-                        fix_bit = t;
-                        fix_sub_vec.push(sub.number);
-                    },
-                    None => return Ok(None)
-                }
-            }
-            else
-            {
-                return Err(String::from("Invalid fixed class number!"));
-            }
-        }
-        else
-        {
-            return Err(String::from("Invalid fixed class code!"));
-        }
-    }
-
-    let mut i = 0;
-
-    let mut sub_comb_list = vec![Subs{sub_nums: fix_sub_vec, time_bit: fix_bit, factor: 0}];
-
-    for req_code in reqsubs.iter()
-    {
-        if let Some(req_subs) = subdata.get(*req_code)
-        {   
-            let mut flag: bool = false;//check if require subject are included
-            let mut req_comb_dump: Vec<Subs> = Vec::new();
-            for req_sub in req_subs.iter()
-            { 
-                if i%20 == 0
-                {
-                    match now.elapsed() {
-                        Ok(elapsed) => {
-                            if elapsed.as_secs()> 10
-                            {
-                                return Err(String::from("Function Timeout!"));
-                            }
-                        }
-                        Err(_) => {
-                            // an error occurred!
-                            return Err(String::from("Function Timeout!"));
-                        }
-                    }
-                }
-                i+=1;
-
-                for subs in sub_comb_list.iter()
-                {
-                    match merge_time_bit(&req_sub.time_bit, &subs.time_bit)
-                    {
-                        Some(t) => {
-                            flag = true;
-                            let mut c = subs.sub_nums.clone();
-                            c.push(req_sub.number);
-                            req_comb_dump.push(Subs{sub_nums: c, time_bit: t, factor: 0});
-                        }
-                        None => {}
-                    }
-                }
-            }
-            sub_comb_list = req_comb_dump;
-            if !flag
-            {
-                return Ok(None);
-            }
-        }
-        else
-        {
-            return Err(String::from("Invalid required class code!"));
-        }
-    }
-    
-    let mut sub_comb_list = MinMaxHeap::from(sub_comb_list);
-    for sel_code in selsubs.iter()
-    {
-        if let Some(sel_subs) = subdata.get(*sel_code)
-        {
-            let mut sel_comb_dump: Vec<Subs> = Vec::new();
-            for sel_sub in sel_subs.iter()
-            { 
-
-                if i%20 == 0
-                {
-                    match now.elapsed() {
-                        Ok(elapsed) => {
-                            if elapsed.as_secs()> 10
-                            {
-                                return Err(String::from("Function Timeout!"));
-                            }
-                        }
-                        Err(_) => {
-                            // an error occurred!
-                            return Err(String::from("Function Timeout!"));
-                        }
-                    }
-                }
-                i+=1;
-
-                for subs in sub_comb_list.clone().iter()
-                {
-                    match merge_time_bit(&sel_sub.time_bit, &subs.time_bit)
-                    {
-                        Some(t) => {
-                            let mut c = subs.sub_nums.clone();
-                            c.push(sel_sub.number);
-                            sel_comb_dump.push(Subs{sub_nums: c, time_bit: t, factor: hamming_weight(&t) as i32});
-                        }
-                        None => {}
-                    }
-                }
-            }
-            sub_comb_list.extend(sel_comb_dump.into_iter());
-        }
-        else
-        {
-            return Err(String::from("Invalid selected class code!"));
-        }
-    }
-
-    let ans = sub_comb_list.into_vec_asc().into_iter().map(|x| x.sub_nums).collect();
-    Ok(Some(ans))
 }

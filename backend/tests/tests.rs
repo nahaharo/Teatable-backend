@@ -1,14 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+    use lifeguard::*;
+
     use backend::*;
-    #[test]
-    fn test_redis() {
-        let q = DB::add_share(&vec![1,2,3]).unwrap();
-        let ans = DB::get_share(&q);
-        print!("{:?}\n", ans);
-        let ans = backend::DB::get_share(&"asdf".to_string());
-        print!("{:?}\n", ans);
-    }
     #[test]
     fn test_bitarray() {
         let mut a = Tools::BitArray::zero();
@@ -32,6 +27,20 @@ mod tests {
     }
     #[test]
     fn test_load() {
-        let a = Subject::Subject::load("data.json");
+        let _ = Subject::Subject::load("data.json");
+    }
+
+    #[test]
+    fn test_combination() {
+        let subject_vec = Subject::Subject::load("data.json");
+        let pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
+
+        let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));
+        let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
+        let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
+        let mut sel_subs = vec!["HL320".to_string()];
+        let ans = combinator.combinate_subjects(&fix_subs, &mut req_subs, &mut sel_subs);
+
+        assert_eq!(ans.unwrap().unwrap().len(), 12);
     }
 }

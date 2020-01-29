@@ -1,19 +1,7 @@
-use lazy_static::lazy_static;
 use r2d2_redis::{r2d2, RedisConnectionManager};
 use r2d2_redis::redis::Commands;
 
 use rand::Rng;
-
-//const SHARE_DB_NUM : u32 = 1;
-
-lazy_static!
-{
-    static ref CON_POOL : r2d2::Pool<RedisConnectionManager> = {
-        let manager = RedisConnectionManager::new("redis://127.0.0.1/").unwrap();
-        r2d2::Pool::builder().build(manager).unwrap()
-    };
-}
-
 
 fn make_query_string() -> String
 {
@@ -33,15 +21,12 @@ fn make_query_string() -> String
     password
 }
 
-pub fn add_share(value : &Vec<u32>) -> Result<String, &str>
+pub fn add_share<'a, 'b>(pool: &'a r2d2::Pool<RedisConnectionManager>, value : &Vec<u32>) -> Result<String, &'b str>
 {
-    let mut conn;
-
-    match CON_POOL.get() {
-        Ok(t) => conn = t,
-        Err(_) => return Err(&"Err"),
+    let mut conn = match pool.get() {
+        Ok(t) => t,
+        Err(_) => {return Err("Fail to connect");}
     };
-    // redis::cmd("SELECT").arg(SHARE_DB_NUM).execute(conn.deref_mut());
 
     let mut password = make_query_string();
     
@@ -64,12 +49,11 @@ pub fn add_share(value : &Vec<u32>) -> Result<String, &str>
     Ok(password)
 }
 
-pub fn get_share(key : &String) -> Option<Vec<u32>>
+pub fn get_share(pool: &r2d2::Pool<RedisConnectionManager>, key : &String) -> Option<Vec<u32>>
 {
-    let mut conn;
-    match CON_POOL.get() {
-        Ok(t) => conn = t,
-        Err(_) => return None
+    let mut conn = match pool.get() {
+        Ok(t) => t,
+        Err(_) => {return None}
     };
 
     let ans : Option<Vec<u32>> = match conn.lrange(key, 0, -1) {
@@ -87,8 +71,11 @@ pub fn get_share(key : &String) -> Option<Vec<u32>>
     ans
 }
 
-pub fn del_share(key : &String)
+pub fn del_share(pool: r2d2::Pool<RedisConnectionManager>, key : &String)
 {
-    let mut conn = CON_POOL.get().unwrap();
+    let mut conn = match pool.get() {
+        Ok(t) => t,
+        Err(_) => {return}
+    };
     let _ans : u32 = conn.del(key).unwrap();
 }
