@@ -136,7 +136,6 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(|| {
         App::new()
         .service(web::resource("/comb").route(web::post().to(query)))
-        .route("/", web::get().to(|| base(&SUB_JSON)))   
     });
     panic!("CHECK SHARE");
     let args: Vec<String> = env::args().collect();
