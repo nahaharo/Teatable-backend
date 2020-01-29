@@ -6,12 +6,13 @@ use jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 use backend;
-use actix_web::{web, App, HttpResponse, HttpServer, HttpRequest};
+use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_cors::Cors;
 
 use serde_json::json;
 use serde::Deserialize;
 use std::env;
+use std::path::Path;
 
 use std::rc::Rc;
 use lifeguard::*;
@@ -73,13 +74,17 @@ struct CombinationJson {
 
 async fn combination(json: web::Json<CombinationJson>, combinator: web::Data<backend::Tools::SubjectCombinator>) -> HttpResponse
 {
-    println!("Get comb!");
     let CombinationJson{ fix, mut req, mut sel } = json.into_inner();
     let ans = combinator.combinate_subjects(&fix, &mut req, &mut sel);
 
     let res: String = match ans {
         Ok(value) => match value {
-            Some(arr) => json!({"s":"t", "comb":arr}).to_string(),
+            Some(arr) => {
+                let comb: Vec<&Vec<usize>> = arr.iter().map(
+                        |x| x.as_ref()
+                    ).collect();
+                json!({"s":"t", "comb":comb}).to_string()
+            },
             None => json!({"s":"f", "msg":"조합이 없습니다."}).to_string(),
         },
         Err(_) => json!({"s":"f", "msg": "조합에 실패했습니다."}).to_string()
@@ -113,15 +118,27 @@ async fn main() -> std::io::Result<()> {
 #[cfg(target_os = "windows")]
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+    use backend::Subject::Subject as Subject;
+
     let args: Vec<String> = env::args().collect();
     let default_bind = "127.0.0.1:8088".to_string();
     let bind = args.get(1).unwrap_or(&default_bind);
 
-    let subject_vec = backend::Subject::Subject::load("data.json");
-    let obj_pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
+    let subject_vec: Vec<Subject>;
+
+    if Path::new("data.json").exists() {
+        subject_vec = Subject::load("data.json");
+    }
+    else {
+        let a = crawler::SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        subject_vec = a.to_subject_vector();
+        backend::Subject::Subject::save(&subject_vec, "data.json");
+    }
+
+    let obj_pool : Pool<Vec<usize>> = pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build();
     let conn_pool = r2d2::Pool::builder().build(
-        RedisConnectionManager::new("redis://127.0.0.1/"
-    ).unwrap()).unwrap();
+        RedisConnectionManager::new("redis://127.0.0.1/").unwrap()
+    ).unwrap();
 
     let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(obj_pool));
 

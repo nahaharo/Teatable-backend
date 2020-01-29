@@ -4,14 +4,3 @@ members = [
     "backend",
     "server"
 ]
-
-[profile.bench]
-opt-level = 3
-debug = false
-rpath = false
-lto = false
-debug-assertions = false
-codegen-units = 16
-panic = 'unwind'
-incremental = false
-overflow-checks = false

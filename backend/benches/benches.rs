@@ -9,7 +9,7 @@ use backend::*;
 
 #[bench]
 fn subject_combination(b: &mut Bencher) {
-    let subject_vec = Subject::Subject::load("data.json");
+    let subject_vec = Subject::Subject::load("../data.json");
     let pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
 
     let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));

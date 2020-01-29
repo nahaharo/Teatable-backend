@@ -123,7 +123,7 @@ impl SubjectCombinator {
     }
 
     pub fn combinate_subjects(&self, fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
-     -> Result<Option<Vec<Vec<usize>>>, &str> {
+     -> Result<Option<Vec<Recycled<Vec<usize>>>>, &str> {
         reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
         selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
 
@@ -205,10 +205,11 @@ impl SubjectCombinator {
             Ok(None)
         }
         else {
-            Ok(Some( 
-                sub_comb_list.into_iter().map(
-                    |x| x.detach()
-                ).collect()
+            Ok(Some(
+                sub_comb_list
+                // sub_comb_list.into_iter().map(
+                //     |x| x.detach()
+                // ).collect()
             ))
         }
     }
