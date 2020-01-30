@@ -66,7 +66,21 @@ impl fmt::Debug for BitArray {
         elem[0], elem[1], elem[2], elem[3])
     }
 }
-
+/// Struct for combinate subjects with conditions.
+/// 
+/// ### members
+/// - conflict_array: pre-calculated conflict boolean.
+/// - code_to_subject: mapping code and class number to index in "conflict_array".
+/// - code_to_num: mapping code and class number to index in "Subject vector".
+/// - subjects: Storage for Subjects.
+/// - pool: object pool for inner vectors.
+/// 
+/// ### Algorithm for check conflict: 
+/// 1. Assign array index to each class based on time that occupied. \
+///     ex: If two class has same time table, it has same array index.
+/// 2. For each time(table) that has been counted as array index, check conflict each other.
+/// 3. Save these conflict boolean to BitArray.
+/// 4. When we need to check conflict, we call BitArray corresponding to index then masking using SIMD(Performance!!)
 #[derive(Clone)]
 pub struct SubjectCombinator {
     conflict_array: [BitArray; 256],
@@ -77,8 +91,9 @@ pub struct SubjectCombinator {
     pool: Rc<Pool<Vec<usize>>>,
 }
 
+type SingleCombination = Vec<usize>;
 impl SubjectCombinator {
-    pub fn new(subs: Vec<Subject>, obj_pool: Rc<Pool<Vec<usize>>>) -> Self {
+    pub fn new(subs: Vec<Subject>, obj_pool: Rc<Pool<SingleCombination>>) -> Self {
         let mut subject_map: HashMap<String, Vec<&Subject>> = HashMap::new();
         let mut code_to_num: HashMap<String, Vec<usize>> = HashMap::new();
         let mut time_map: HashMap<[u64;5], u8> = HashMap::new();
@@ -123,12 +138,36 @@ impl SubjectCombinator {
     }
 
     pub fn combinate_subjects(&self, fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
-     -> Result<Option<Vec<Recycled<Vec<usize>>>>, &str> {
-        reqsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
-        selsubs.sort_unstable_by_key(|x| self.code_to_subject.get(x).unwrap_or(&Vec::new()).len());
+     -> Result<Option<Vec<Recycled<SingleCombination>>>, &str> {
+        // first, sort reqired subjects(reqsubs) and selected subjects(selsubs) by use key as number of classes (which sharing subject code)
+        // this reduce execution time
+        let mut req_no_sub_flag = false;
+        reqsubs.sort_unstable_by_key(|x| match self.code_to_subject.get(x) {
+            Some(t) => t.len(),
+            None => {
+                req_no_sub_flag = true;
+                0
+            }
+        } );
+        if req_no_sub_flag {
+            return Err("Invalid required subject");
+        }
+
+        let mut sel_no_sub_flag = false;
+        selsubs.sort_unstable_by_key(|x| match self.code_to_subject.get(x) {
+            Some(t) => t.len(),
+            None => {
+                sel_no_sub_flag = true;
+                0
+            }
+        } );
+        if sel_no_sub_flag {
+            return Err("Invalid selected subject");
+        }
 
         let mut fix_subs = self.pool.new();
         let mut fix_mask = BitArray::zero();
+        // in this loop, we findout fixed subjects from code_to_subject, and check are these in conflict.
         for (sub_code, class_idx) in fixsubs.iter() {
             let idx: u8 = match self.code_to_subject.get(sub_code) {
                 Some(t) => t[*class_idx as usize],
@@ -144,67 +183,66 @@ impl SubjectCombinator {
         let mut sub_mask_list = Vec::with_capacity(20);
         sub_mask_list.push(fix_mask.clone());
 
-        for req_code in reqsubs.iter() {   
+        // loop for reqired subjects
+        for req_code in reqsubs.iter() {  // for each subject( = subject code)  
             let mut is_added = false;
 
-            let mut tmp_req_comb_list = Vec::with_capacity(sub_comb_list.len()+10);
-            let mut tmp_req_mask_list = Vec::with_capacity(sub_comb_list.len()+10);
+            let mut tmp_req_comb_list = Vec::with_capacity(sub_comb_list.len()*2);
+            let mut tmp_req_mask_list = Vec::with_capacity(sub_comb_list.len()*2);
 
-            if let Some(req_subs) = self.code_to_subject.get(req_code) { // req_subs: Vec<usize>
-                let req_subs_idxs = self.code_to_num.get(req_code).unwrap();
-                for (class_idx, bit_idx) in req_subs.iter().enumerate() { 
-                    for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // subs: Vec<(String, usize)>, bit: BitArray
-                        let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
-                        let combined_bit: u64x4 = bit.clone().into(); // current mask
-                        let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
-                        if m {
-                            is_added = true;
-                            let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
-                            let mut new_bit = bit.clone();
-                            new_sub.push(req_subs_idxs[class_idx]);
-                            new_bit.set(*bit_idx, true);
-                            tmp_req_comb_list.push(new_sub);
-                            tmp_req_mask_list.push(new_bit);
-                        }
+            let req_subs = self.code_to_subject.get(req_code).unwrap();
+            let req_subs_idxs = self.code_to_num.get(req_code).unwrap();
+            for (class_idx, bit_idx) in req_subs.iter().enumerate() { // for each class with same code
+                for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // for each time block in class. subs: Vec<(String, usize)>, bit: BitArray
+                    let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
+                    let combined_bit: u64x4 = bit.clone().into(); // current mask
+                    let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all(); // Check if is it conflict
+                    if m {
+                        is_added = true;
+                        let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
+                        let mut new_bit = bit.clone();
+                        new_sub.push(req_subs_idxs[class_idx]);
+                        new_bit.set(*bit_idx, true);
+                        tmp_req_comb_list.push(new_sub);
+                        tmp_req_mask_list.push(new_bit);
                     }
                 }
-                sub_comb_list = tmp_req_comb_list;
-                sub_mask_list = tmp_req_mask_list;
             }
-            else { return Err("Invalid require subject") }
+            sub_comb_list = tmp_req_comb_list;
+            sub_mask_list = tmp_req_mask_list;
+
             if !is_added {
                 return Ok(None)
             }
         }
         
         for sel_code in selsubs.iter() {
-            if let Some(sel_subs) = self.code_to_subject.get(sel_code) {
-                let sel_subs_idxs = self.code_to_num.get(sel_code).unwrap();
-                for (class_idx, bit_idx) in sel_subs.iter().enumerate() { 
-                    for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
-                        let combined_subs = &sub_comb_list[idx];
-                        let bit = &sub_mask_list[idx];
-                        let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
-                        let combined_bit: u64x4 = bit.clone().into(); // current mask
-                        let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
-                        if m {
-                            let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
-                            let mut new_bit = bit.clone();
-                            new_sub.push(sel_subs_idxs[class_idx]);
-                            new_bit.set(*bit_idx, true);
-                            sub_comb_list.push(new_sub);
-                            sub_mask_list.push(new_bit);
-                        }
+            let sel_subs = self.code_to_subject.get(sel_code).unwrap();
+            let sel_subs_idxs = self.code_to_num.get(sel_code).unwrap();
+            for (class_idx, bit_idx) in sel_subs.iter().enumerate() { 
+                for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
+                    let combined_subs = &sub_comb_list[idx];
+                    let bit = &sub_mask_list[idx];
+                    let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
+                    let combined_bit: u64x4 = bit.clone().into(); // current mask
+                    let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
+                    if m {
+                        let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
+                        let mut new_bit = bit.clone();
+                        new_sub.push(sel_subs_idxs[class_idx]);
+                        new_bit.set(*bit_idx, true);
+                        sub_comb_list.push(new_sub);
+                        sub_mask_list.push(new_bit);
                     }
                 }
             }
-            else { return Err("Invalid selected subject") }
         }
 
         if sub_comb_list.len() == 0 {
             Ok(None)
         }
         else {
+            sub_comb_list.reverse();
             Ok(Some(
                 sub_comb_list
                 // sub_comb_list.into_iter().map(
