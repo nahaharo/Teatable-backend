@@ -7,7 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lazy_static = "1"
 serde_json = "1.0"
 serde = "1.0"
 actix-cors = "0.2"
@@ -15,7 +14,6 @@ actix-web = { version="2.0", features=["openssl"]}
 openssl = "0.10"
 actix-rt = "1"
 tokio-uds = "0.2"
-qstring = "0.7"
 backend = { path= "../backend" }
 futures ="0.3.1"
 lifeguard = "0.6.0"
