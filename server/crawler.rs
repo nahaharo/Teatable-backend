@@ -6,6 +6,7 @@ use backend::Subject::*;
 
 const SUBJECT_URL: &'static str = "https://welcome.dgist.ac.kr/ucs/ucsqProfRespSbjtInq/list.do;";
 
+#[allow(dead_code)]
 enum Semister {
     Spring,
     Summer,
@@ -13,6 +14,7 @@ enum Semister {
     Winter
 }
 
+#[allow(dead_code)]
 enum Organization {
     UnderGraduate,
     Graduate,
@@ -92,31 +94,36 @@ impl SubjectQuery {
         }
     }
 
+    #[allow(dead_code)]
     pub fn spring(&mut self) -> &mut SubjectQuery {
         self.semister = Semister::Spring;
         self
     }
 
+    #[allow(dead_code)]
     pub fn summer(&mut self) -> &mut SubjectQuery {
         self.semister = Semister::Summer;
         self
     }
 
+    #[allow(dead_code)]
     pub fn fall(&mut self) -> &mut SubjectQuery {
         self.semister = Semister::Fall;
         self
     }
-
+    #[allow(dead_code)]
     pub fn winter(&mut self) -> &mut SubjectQuery {
         self.semister = Semister::Winter;
         self
     }
 
+    #[allow(dead_code)]
     pub fn undergraduate(&mut self) -> &mut SubjectQuery {
         self.organization = Organization::UnderGraduate;
         self
     }
 
+    #[allow(dead_code)]
     pub fn graduate(&mut self) -> &mut SubjectQuery {
         self.organization = Organization::Graduate;
         self
