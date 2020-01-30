@@ -1,8 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-    use lifeguard::*;
-
     use backend::*;
     #[test]
     fn test_bitarray() {
@@ -27,15 +24,14 @@ mod tests {
     }
     #[test]
     fn test_load() {
-        let _ = Subject::Subject::load("data.json");
+        let _ = Subject::Subject::load("../data.json");
     }
 
     #[test]
     fn test_combination() {
-        let subject_vec = Subject::Subject::load("data.json");
-        let pool : Pool<Vec<usize>> = pool().with(StartingSize(10)).with(Supplier(|| Vec::with_capacity(30))).build();
+        let subject_vec = Subject::Subject::load("../data.json");
 
-        let combinator = Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(pool));
+        let combinator = Tools::SubjectCombinator::new(subject_vec.clone());
         let fix_subs = vec![("SE324a".to_string(), 0), ("SE334a".to_string(), 0), ("SE380".to_string(), 0), ("HL303".to_string(), 31)];
         let mut req_subs = vec!["HL203".to_string(), "HL204".to_string(), "HL305".to_string()];
         let mut sel_subs = vec!["HL320".to_string()];

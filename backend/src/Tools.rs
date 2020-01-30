@@ -66,6 +66,8 @@ impl fmt::Debug for BitArray {
         elem[0], elem[1], elem[2], elem[3])
     }
 }
+
+type SingleCombination = Vec<usize>;
 /// Struct for combinate subjects with conditions.
 /// 
 /// ### members
@@ -81,19 +83,29 @@ impl fmt::Debug for BitArray {
 /// 2. For each time(table) that has been counted as array index, check conflict each other.
 /// 3. Save these conflict boolean to BitArray.
 /// 4. When we need to check conflict, we call BitArray corresponding to index then masking using SIMD(Performance!!)
-#[derive(Clone)]
 pub struct SubjectCombinator {
     conflict_array: [BitArray; 256],
     code_to_subject: HashMap<String, Vec<u8>>,// {class code: [conflict_array idx of each class]}
     code_to_num: HashMap<String, Vec<usize>>,
     subjects: Vec<Subject>,
 
-    pool: Rc<Pool<Vec<usize>>>,
+    pool: Pool<Vec<usize>>,
 }
 
-type SingleCombination = Vec<usize>;
+impl Clone for SubjectCombinator {
+    fn clone(&self) -> Self {
+        SubjectCombinator {
+            conflict_array: self.conflict_array.clone(),
+            code_to_subject: self.code_to_subject.clone(),
+            code_to_num: self.code_to_num.clone(),
+            subjects: self.subjects.clone(),
+            pool: pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build()
+        }
+    }
+}
+
 impl SubjectCombinator {
-    pub fn new(subs: Vec<Subject>, obj_pool: Rc<Pool<SingleCombination>>) -> Self {
+    pub fn new(subs: Vec<Subject>) -> Self {
         let mut subject_map: HashMap<String, Vec<&Subject>> = HashMap::new();
         let mut code_to_num: HashMap<String, Vec<usize>> = HashMap::new();
         let mut time_map: HashMap<[u64;5], u8> = HashMap::new();
@@ -128,6 +140,7 @@ impl SubjectCombinator {
                 }
             }
         }
+        let obj_pool : Pool<Vec<usize>> = pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build();
         SubjectCombinator {
             conflict_array: conflict_bit,
             code_to_subject: idx_maps,

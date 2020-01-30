@@ -135,12 +135,11 @@ async fn main() -> std::io::Result<()> {
         backend::Subject::Subject::save(&subject_vec, "data.json");
     }
 
-    let obj_pool : Pool<Vec<usize>> = pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build();
     let conn_pool = r2d2::Pool::builder().build(
         RedisConnectionManager::new("redis://127.0.0.1/").unwrap()
     ).unwrap();
 
-    let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone(), Rc::new(obj_pool));
+    let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone());
 
     let server = HttpServer::new(move || {
         App::new()
