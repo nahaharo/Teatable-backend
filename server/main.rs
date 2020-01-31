@@ -120,6 +120,7 @@ async fn main() -> std::io::Result<()> {
     ).unwrap();
 
     let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone());
+    let data_string = Subject::zipped_json(&subject_vec);
 
     let server = HttpServer::new(move || {
         App::new()
