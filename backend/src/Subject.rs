@@ -59,6 +59,45 @@ impl Subject {
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).unwrap()
     }
+
+    pub fn to_array(&self) -> String {
+        let mut time_string = String::from("{");
+        const DAYS: [&str; 5] = ["월", "화", "수", "목","금"];
+        for (idx, elem) in self.time_tuple.iter().enumerate() {
+            if elem.len() == 0 {continue;}
+            time_string += &format!("\"{}\":[", DAYS[idx]);
+            for (s, e) in elem.iter() {
+                time_string += &format!("[{},{}],", &s, &e);
+            }
+            if let Some(t) = time_string.pop() {
+                if t != ",".chars().next().unwrap() {time_string.push(t);}
+            }
+            time_string += &String::from("],");
+        }
+        if let Some(t) = time_string.pop() {
+            if t != ",".chars().next().unwrap() {time_string.push(t);}
+        }
+        time_string += &String::from("}");
+        let mut place_string = String::from("[");
+        for (idx, elem) in self.place.iter().enumerate() {
+            place_string += &format!("\"{}\"", &elem.replace(" ",""));
+            if idx != self.place.len()-1 {place_string += &String::from(",");} 
+        }
+        place_string += &String::from("]");
+        format!("[{},\"{}\",{},\"{}\",\"{}\",{},{},{}]", 
+        &(self.number-1), &self.code, &self.class_num, &self.class_name, &self.prof, &self.credit, place_string, time_string)
+    }
+
+    pub fn zipped_json(subjects: &Vec<Subject>) -> String {
+        //let data_array = Vec::new();
+        let mut s = String::from("[");
+        for (i, e) in subjects.iter().enumerate() {
+            s += &e.to_array();
+            if i != subjects.len()-1 {s += &String::from(",")}
+        }
+        s += &String::from("]");
+        format!("{{\"body\":{},\"head\":[\"No\",\"과목번호\",\"분반\",\"교과목명\",\"담당교수\",\"학점\",\"강의실\",\"시간\"]}}", s)
+    }
 }
 
 fn time_to_num(time_str: &str) -> Result<u32, Box<dyn Error>>

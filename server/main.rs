@@ -89,11 +89,10 @@ async fn combination(json: web::Json<CombinationJson>, combinator: web::Data<bac
     HttpResponse::Ok().body(res)
 }
 
-// async fn index(req: HttpRequest) -> HttpResponse
-// {
-//     println!("{:?}", &req);
-//     HttpResponse::Ok().body("Hello")
-// }
+async fn data(data: web::Data<String>) -> HttpResponse
+{
+    HttpResponse::Ok().body(data.as_ref())
+}
 
 // This function only gets compiled if the target OS is linux
 #[cfg(target_os = "linux")]
@@ -163,6 +162,7 @@ async fn main() -> std::io::Result<()> {
     ).unwrap();
 
     let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone());
+    let data_string = Subject::zipped_json(&subject_vec);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -171,9 +171,10 @@ async fn main() -> std::io::Result<()> {
         )
         .data(combinator.clone())
         .data(conn_pool.clone())
+        .data(data_string.clone())
         .service(web::resource("/comb").route(web::post().to(combination)))
         .service(web::resource("/share").route(web::post().to(db_access)))
-        //.service(web::resource("/").route(web::post().to(index)))
+        .service(web::resource("/data").route(web::post().to(data)))
     });
     print!("Service was binded to {:?}\n", bind);
     server.bind(bind).unwrap().run().await

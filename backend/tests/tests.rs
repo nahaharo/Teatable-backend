@@ -24,7 +24,9 @@ mod tests {
     }
     #[test]
     fn test_load() {
-        let _ = Subject::Subject::load("../data.json");
+        let a = Subject::Subject::load("../data.json");
+        let b = Subject::Subject::zipped_json(&a);
+        println!("{:}", &b);
     }
 
     #[test]
