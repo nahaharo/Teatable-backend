@@ -99,14 +99,40 @@ async fn combination(json: web::Json<CombinationJson>, combinator: web::Data<bac
 #[cfg(target_os = "linux")]
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let server = HttpServer::new(|| {
-        App::new()
-        .service(web::resource("/comb").route(web::post().to(query)))
-    });
-    panic!("CHECK SHARE");
+    use backend::Subject::Subject as Subject;
+
     let args: Vec<String> = env::args().collect();
     let default_bind = "/tmp/actix.socket".to_string();
     let bind = args.get(1).unwrap_or(&default_bind);
+
+    let subject_vec: Vec<Subject>;
+
+    if Path::new("data.json").exists() {
+        subject_vec = Subject::load("data.json");
+    }
+    else {
+        let a = crawler::SubjectQuery::new(2019).fall().undergraduate().send().await.unwrap();
+        subject_vec = a.to_subject_vector();
+        backend::Subject::Subject::save(&subject_vec, "data.json");
+    }
+
+    let conn_pool = r2d2::Pool::builder().build(
+        RedisConnectionManager::new("redis://127.0.0.1/").unwrap()
+    ).unwrap();
+
+    let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone());
+
+    let server = HttpServer::new(move || {
+        App::new()
+        .wrap(
+            Cors::new().send_wildcard().finish()
+        )
+        .data(combinator.clone())
+        .data(conn_pool.clone())
+        .service(web::resource("/comb").route(web::post().to(combination)))
+        .service(web::resource("/share").route(web::post().to(db_access)))
+        //.service(web::resource("/").route(web::post().to(index)))
+    });
     print!("Service was binded to {:?}\n", bind);
     server.bind_uds(bind).unwrap().run().await
 }
