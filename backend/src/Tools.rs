@@ -4,7 +4,6 @@ use super::Subject::*;
 
 use std::fmt;
 use packed_simd::{u64x4};
-use std::rc::Rc;
 
 use lifeguard::*;
 
@@ -70,26 +69,27 @@ impl fmt::Debug for BitArray {
 type SingleCombination = Vec<usize>;
 /// Struct for combinate subjects with conditions.
 /// 
-/// ### members
-/// - conflict_array: pre-calculated conflict boolean.
-/// - code_to_subject: mapping code and class number to index in "conflict_array".
-/// - code_to_num: mapping code and class number to index in "Subject vector".
-/// - subjects: Storage for Subjects.
-/// - pool: object pool for inner vectors.
-/// 
-/// ### Algorithm for check conflict: 
+/// # Algorithm for check conflict: 
 /// 1. Assign array index to each class based on time that occupied. \
 ///     ex: If two class has same time table, it has same array index.
 /// 2. For each time(table) that has been counted as array index, check conflict each other.
 /// 3. Save these conflict boolean to BitArray.
 /// 4. When we need to check conflict, we call BitArray corresponding to index then masking using SIMD(Performance!!)
 pub struct SubjectCombinator {
+    // conflict_array: pre-calculated conflict boolean.
     conflict_array: [BitArray; 256],
-    code_to_subject: HashMap<String, Vec<u8>>,// {class code: [conflict_array idx of each class]}
+    // code_to_subject: mapping code and class number to index in "conflict_array".
+    // Shape of {class code: [conflict_array idx of each class]}.
+    code_to_subject: HashMap<String, Vec<u8>>,
+    // code_to_num: mapping code and class number to index in "Subject vector".
     code_to_num: HashMap<String, Vec<usize>>,
+    // subjects: Storage for Subjects.
     subjects: Vec<Subject>,
 
-    pool: Pool<Vec<usize>>,
+    // object pool for SingleCombination.
+    obj_pool: Pool<Vec<usize>>,
+    comb_pool: Pool<Vec<RcRecycled<SingleCombination>>>,
+    bit_pool: Pool<Vec<BitArray>>,
 }
 
 impl Clone for SubjectCombinator {
@@ -99,7 +99,9 @@ impl Clone for SubjectCombinator {
             code_to_subject: self.code_to_subject.clone(),
             code_to_num: self.code_to_num.clone(),
             subjects: self.subjects.clone(),
-            pool: pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build()
+            obj_pool: pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build(),
+            comb_pool: pool().with(StartingSize(2)).with(Supplier(|| Vec::with_capacity(1000))).build(),
+            bit_pool: pool().with(StartingSize(2)).with(Supplier(|| Vec::with_capacity(1000))).build()
         }
     }
 }
@@ -140,18 +142,19 @@ impl SubjectCombinator {
                 }
             }
         }
-        let obj_pool : Pool<Vec<usize>> = pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build();
         SubjectCombinator {
             conflict_array: conflict_bit,
             code_to_subject: idx_maps,
             code_to_num: code_to_num,
             subjects: subs,
-            pool: obj_pool
+            obj_pool: pool().with(StartingSize(256)).with(Supplier(|| Vec::with_capacity(30))).build(),
+            comb_pool: pool().with(StartingSize(2)).with(Supplier(|| Vec::with_capacity(1000))).build(),
+            bit_pool: pool().with(StartingSize(2)).with(Supplier(|| Vec::with_capacity(1000))).build()
         }
     }
 
     pub fn combinate_subjects(&self, fixsubs: &Vec<(String, /*Index, not class number*/usize)>, reqsubs: &mut Vec<String>, selsubs: &mut Vec<String>)
-     -> Result<Option<Vec<Recycled<SingleCombination>>>, &str> {
+     -> Result<Option<Recycled<Vec<RcRecycled<SingleCombination>>>>, &str> {
         // first, sort reqired subjects(reqsubs) and selected subjects(selsubs) by use key as number of classes (which sharing subject code)
         // this reduce execution time
         let mut req_no_sub_flag = false;
@@ -178,7 +181,7 @@ impl SubjectCombinator {
             return Err("Invalid selected subject");
         }
 
-        let mut fix_subs = self.pool.new();
+        let mut fix_subs = self.obj_pool.new_rc();
         let mut fix_mask = BitArray::zero();
         // in this loop, we findout fixed subjects from code_to_subject, and check are these in conflict.
         for (sub_code, class_idx) in fixsubs.iter() {
@@ -191,17 +194,17 @@ impl SubjectCombinator {
             fix_mask.set(idx, true);
         }
 
-        let mut sub_comb_list = Vec::with_capacity(20);
+        let mut sub_comb_list = self.comb_pool.new();
         sub_comb_list.push(fix_subs);
-        let mut sub_mask_list = Vec::with_capacity(20);
+        let mut sub_mask_list = self.bit_pool.new();
         sub_mask_list.push(fix_mask.clone());
 
         // loop for reqired subjects
         for req_code in reqsubs.iter() {  // for each subject( = subject code)  
             let mut is_added = false;
 
-            let mut tmp_req_comb_list = Vec::with_capacity(sub_comb_list.len()*2);
-            let mut tmp_req_mask_list = Vec::with_capacity(sub_comb_list.len()*2);
+            let mut tmp_req_comb_list = self.comb_pool.new();
+            let mut tmp_req_mask_list = self.bit_pool.new();
 
             let req_subs = self.code_to_subject.get(req_code).unwrap();
             let req_subs_idxs = self.code_to_num.get(req_code).unwrap();
@@ -212,7 +215,7 @@ impl SubjectCombinator {
                     let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all(); // Check if is it conflict
                     if m {
                         is_added = true;
-                        let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
+                        let mut new_sub = combined_subs.clone();
                         let mut new_bit = bit.clone();
                         new_sub.push(req_subs_idxs[class_idx]);
                         new_bit.set(*bit_idx, true);
@@ -240,7 +243,7 @@ impl SubjectCombinator {
                     let combined_bit: u64x4 = bit.clone().into(); // current mask
                     let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all();
                     if m {
-                        let mut new_sub = self.pool.new_from(combined_subs.iter().cloned());
+                        let mut new_sub = combined_subs.clone();
                         let mut new_bit = bit.clone();
                         new_sub.push(sel_subs_idxs[class_idx]);
                         new_bit.set(*bit_idx, true);

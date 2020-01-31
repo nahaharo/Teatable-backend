@@ -14,9 +14,6 @@ use serde::Deserialize;
 use std::env;
 use std::path::Path;
 
-use std::rc::Rc;
-use lifeguard::*;
-
 use r2d2_redis::{r2d2, RedisConnectionManager};
 
 mod crawler;
