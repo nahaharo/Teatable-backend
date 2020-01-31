@@ -123,14 +123,11 @@ async fn main() -> std::io::Result<()> {
 
     let server = HttpServer::new(move || {
         App::new()
-        .wrap(
-            Cors::new().send_wildcard().finish()
-        )
         .data(combinator.clone())
         .data(conn_pool.clone())
         .service(web::resource("/comb").route(web::post().to(combination)))
         .service(web::resource("/share").route(web::post().to(db_access)))
-        //.service(web::resource("/").route(web::post().to(index)))
+        .service(web::resource("/data").route(web::post().to(data)))
     });
     print!("Service was binded to {:?}\n", bind);
     server.bind_uds(bind).unwrap().run().await
