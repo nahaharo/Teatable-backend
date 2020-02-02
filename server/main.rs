@@ -17,6 +17,7 @@ use std::path::Path;
 use r2d2_redis::{r2d2, RedisConnectionManager};
 
 mod crawler;
+mod filter;
 
 #[derive(Deserialize)]
 struct DBJson {
@@ -72,6 +73,9 @@ struct CombinationJson {
 async fn combination(json: web::Json<CombinationJson>, combinator: web::Data<backend::Tools::SubjectCombinator>) -> HttpResponse
 {
     let CombinationJson{ fix, mut req, mut sel } = json.into_inner();
+    if !filter::filter_query(&req, &sel) {
+        return HttpResponse::Ok().body(json!({"s":"f", "msg":"잘못된 쿼리 입니다."}).to_string())
+    }
     let ans = combinator.combinate_subjects(&fix, &mut req, &mut sel);
 
     let res: String = match ans {
