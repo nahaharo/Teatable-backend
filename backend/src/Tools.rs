@@ -208,8 +208,8 @@ impl SubjectCombinator {
 
             let req_subs = self.code_to_subject.get(req_code).unwrap();
             let req_subs_idxs = self.code_to_num.get(req_code).unwrap();
-            for (class_idx, bit_idx) in req_subs.iter().enumerate() { // for each class with same code
-                for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // for each time block in class. subs: Vec<(String, usize)>, bit: BitArray
+            for (combined_subs, bit) in sub_comb_list.iter().zip(sub_mask_list.iter()) { // for each class with same code
+                for (class_idx, bit_idx) in req_subs.iter().enumerate() { // for each time block in class. subs: Vec<(String, usize)>, bit: BitArray
                     let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
                     let combined_bit: u64x4 = bit.clone().into(); // current mask
                     let m = (sub_conflict_bit | combined_bit).eq(sub_conflict_bit ^ combined_bit).all(); // Check if is it conflict
@@ -235,8 +235,8 @@ impl SubjectCombinator {
         for sel_code in selsubs.iter() {
             let sel_subs = self.code_to_subject.get(sel_code).unwrap();
             let sel_subs_idxs = self.code_to_num.get(sel_code).unwrap();
-            for (class_idx, bit_idx) in sel_subs.iter().enumerate() { 
-                for idx in 0..sub_comb_list.len() { // subs: Vec<(String, usize)>, bit: BitArray
+            for idx in 0..sub_comb_list.len() { 
+                for (class_idx, bit_idx) in sel_subs.iter().enumerate() { // subs: Vec<(String, usize)>, bit: BitArray
                     let combined_subs = &sub_comb_list[idx];
                     let bit = &sub_mask_list[idx];
                     let sub_conflict_bit: u64x4 =  self.conflict_array[*bit_idx as usize].clone().into();
