@@ -155,13 +155,13 @@ async fn main() -> std::io::Result<()> {
         subject_vec = Subject::load("data.json");
     }
     else {
-        let a = crawler::SubjectQuery::new(2020).spring().undergraduate().send().await.unwrap();
+        let a = crawler::SubjectQuery::new(2020).fall().undergraduate().send().await.unwrap();
         subject_vec = a.to_subject_vector();
         backend::Subject::Subject::save(&subject_vec, "data.json");
     }
 
     let conn_pool = r2d2::Pool::builder().build(
-        RedisConnectionManager::new("redis://127.0.0.1/").unwrap()
+        RedisConnectionManager::new("redis://192.168.219.100/").unwrap()
     ).unwrap();
 
     let combinator = backend::Tools::SubjectCombinator::new(subject_vec.clone());

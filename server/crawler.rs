@@ -138,11 +138,8 @@ impl SubjectQuery {
         ssl_conn_builder.set_verify(SslVerifyMode::NONE);
         let ssl_conn = ssl_conn_builder.build();
         let conn = Connector::new().ssl(ssl_conn).finish();
-
         let client = ClientBuilder::new().connector(conn).finish();
-        let mut a = match client.get(SUBJECT_URL)
-        .set(ContentType::form_url_encoded())
-        .send_body(format!("pageSize=99999&searchLang=ko&searchOrgnClsfDcd={}&selectYearTerm={:4}{}", 
+        let body = format!("pageSize=99999&searchLang=ko&searchOrgnClsfDcd={}&selectYearTerm={:4}{}&searchCuriShyy=2020", 
         match self.organization {
             Organization::Graduate => "CMN12.02",
             Organization::UnderGraduate => "CMN12.03",
@@ -154,10 +151,15 @@ impl SubjectQuery {
             Semister::Fall => "CMN17.20",
             Semister::Winter => "CMN17.21",
         }
-        )).await {
+        );
+        println!("{}", body);
+        let mut a = match client.get(SUBJECT_URL)
+        .set(ContentType::form_url_encoded())
+        .send_body(body).await {
             Ok(t) => t,
             Err(t) => return Err(format!("Fail to get response Err: {}", &t))
         };
+        println!("{:?}", a);
         match a.body().await {
             Ok(t) => {
                 let req: SubjectResponse = match serde_json::from_slice(&t) {
