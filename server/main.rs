@@ -175,9 +175,9 @@ async fn main() -> std::io::Result<()> {
         .data(combinator.clone())
         .data(conn_pool.clone())
         .data(data_string.clone())
-        .service(web::resource("/comb").route(web::post().to(combination)))
-        .service(web::resource("/share").route(web::post().to(db_access)))
-        .service(web::resource("/data").route(web::post().to(data)))
+        .service(web::resource("/api/comb").route(web::post().to(combination)))
+        .service(web::resource("/api/share").route(web::post().to(db_access)))
+        .service(web::resource("/api/data").route(web::post().to(data)))
     });
     print!("Service was binded to {:?}\n", bind);
     server.bind(bind).unwrap().run().await
