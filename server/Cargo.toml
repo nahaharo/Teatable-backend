@@ -15,7 +15,10 @@ openssl = "0.10"
 actix-rt = "1"
 tokio-uds = "0.2"
 backend = { path= "../backend" }
-r2d2_redis = "0.12.0"
+r2d2_redis = "0.13.0"
+log = "0.4.11"
+env_logger = "0.7.1"
+
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.3.2"

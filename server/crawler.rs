@@ -152,14 +152,12 @@ impl SubjectQuery {
             Semister::Winter => "CMN17.21",
         }
         );
-        println!("{}", body);
         let mut a = match client.get(SUBJECT_URL)
         .set(ContentType::form_url_encoded())
         .send_body(body).await {
             Ok(t) => t,
             Err(t) => return Err(format!("Fail to get response Err: {}", &t))
         };
-        println!("{:?}", a);
         match a.body().await {
             Ok(t) => {
                 let req: SubjectResponse = match serde_json::from_slice(&t) {

@@ -9,6 +9,10 @@ use backend;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_cors::Cors;
 
+#[macro_use] extern crate log;
+extern crate env_logger;
+use actix_web::middleware::Logger;
+
 use serde_json::json;
 use serde::Deserialize;
 use std::env;
@@ -102,6 +106,9 @@ async fn data(data: web::Data<String>) -> HttpResponse
 #[cfg(target_os = "linux")]
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "actix_web=info");
+    env_logger::init();
+
     use backend::Subject::Subject as Subject;
 
     let args: Vec<String> = env::args().collect();
@@ -128,6 +135,7 @@ async fn main() -> std::io::Result<()> {
 
     let server = HttpServer::new(move || {
         App::new()
+        .wrap(Logger::default())
         .data(combinator.clone())
         .data(conn_pool.clone())
         .data(data_string.clone())
@@ -143,6 +151,9 @@ async fn main() -> std::io::Result<()> {
 #[cfg(target_os = "windows")]
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "actix_web=info");
+    env_logger::init();
+
     use backend::Subject::Subject as Subject;
 
     let args: Vec<String> = env::args().collect();
@@ -169,6 +180,7 @@ async fn main() -> std::io::Result<()> {
 
     let server = HttpServer::new(move || {
         App::new()
+        .wrap(Logger::default())
         .wrap(
             Cors::new().send_wildcard().finish()
         )
